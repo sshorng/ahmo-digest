@@ -1101,77 +1101,109 @@
         padding: 0.75rem !important;
       }
 
-      /* Mobile Podcast Player (全面優化) */
+      /* Mobile Podcast Player (手機版終極優化) */
       #podcast-player-bar {
-        padding: 10px 12px 12px 12px;
+        padding: 8px 12px 12px 12px;
         height: auto;
       }
 
       #podcast-player-bar .player-content {
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
         align-items: stretch;
       }
 
+      /* 1. 資訊區 (置頂) */
       .player-meta-group {
         order: 1;
         width: 100%;
+        display: flex;
+        flex-direction: column;
         gap: 4px !important;
       }
 
       .player-title {
-        font-size: 0.95rem;
+        font-size: 14px;
+        color: #1e293b;
+        font-weight: 700;
         display: flex !important;
         white-space: nowrap !important;
-        -webkit-line-clamp: none !important;
-        line-clamp: none !important;
-        color: #1e293b;
       }
 
       .player-subtitle {
         font-size: 11px;
         color: #3b82f6 !important;
-        /* 藍色 Podcast 名稱 */
         font-weight: 700;
-        opacity: 1 !important;
+        margin-bottom: 2px;
         display: block !important;
       }
 
+      /* 2. 恢復進度條 */
       .progress-container {
-        display: none !important;
+        display: flex !important;
+        width: 100%;
+        gap: 8px;
+        margin-bottom: 6px;
+        padding: 0 2px;
       }
 
+      .progress-container .time-display {
+        font-size: 9px;
+        min-width: 32px;
+      }
+
+      /* 3. 按鈕區 (Grid 佈局實現播放鍵居中) */
       .player-all-controls-group {
         order: 2;
-        width: 100%;
-        display: flex !important;
-        flex-direction: row !important;
-        justify-content: space-between !important;
+        display: grid !important;
+        grid-template-columns: 1fr auto 1fr;
         align-items: center;
         border-top: 1px solid rgba(0, 0, 0, 0.06);
         padding-top: 10px;
         margin-top: 2px;
       }
 
-      .playback-main-group,
-      .player-controls {
+      .playback-main-group {
+        grid-column: 2;
         display: flex !important;
-        width: auto !important;
-        gap: 12px !important;
+        justify-content: center !important;
+        gap: 16px !important;
         margin: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        flex: unset !important;
       }
 
+      .player-controls-left {
+        grid-column: 1;
+        display: flex !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+      }
+
+      .player-controls-right {
+        grid-column: 3;
+        display: flex !important;
+        justify-content: flex-end !important;
+        gap: 10px !important;
+      }
+
+      /* 手機版按鈕尺寸 */
       .main-play-btn {
-        width: 38px;
-        height: 38px;
-        font-size: 14px;
+        width: 44px;
+        height: 44px;
+        font-size: 16px;
       }
 
       .playback-main-group button i {
-        font-size: 13px;
+        font-size: 14px;
+      }
+
+      .player-controls-left button,
+      .player-controls-right button,
+      .speed-menu-container button {
+        width: 34px !important;
+        height: 34px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .skip-btn {
@@ -5293,28 +5325,8 @@
       </div>
 
       <div class="player-all-controls-group">
-        <!-- Playback Controls (Center) -->
-        <div class="playback-main-group">
-          <button onclick="skipTime(-15)" class="text-slate-400 hover:text-blue-600 transition-colors p-2"
-            title="後退 15 秒">
-            <i class="fa-solid fa-rotate-left"></i>
-          </button>
-          <button onclick="togglePlayPause()" id="player-main-btn" class="main-play-btn" title="播放/暫停">
-            <i class="fa-solid fa-play ml-1"></i>
-          </button>
-          <button onclick="skipTime(30)" class="text-slate-400 hover:text-blue-600 transition-colors p-2"
-            title="前進 30 秒">
-            <i class="fa-solid fa-rotate-right"></i>
-          </button>
-        </div>
-
-        <!-- Secondary Controls (Right) -->
-        <div class="player-controls">
-          <button id="player-download-btn" onclick="handleDownload()"
-            class="hidden lg:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-all"
-            title="下載音訊檔">
-            <i class="fa-solid fa-download text-sm"></i>
-          </button>
+        <!-- Left Side (Mobile View) -->
+        <div class="player-controls-left flex items-center gap-2">
           <button id="player-ai-btn" onclick="handleGenerateAI(currentPlayingId, this)"
             class="ai-sparkle-btn w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-all grayscale opacity-60"
             title="查看或生成 AI 筆記">
@@ -5330,6 +5342,30 @@
               <div class="speed-menu-item" onclick="setPlaybackSpeed(2.0)">2.0x</div>
             </div>
           </div>
+        </div>
+
+        <!-- Middle (Main Controls) -->
+        <div class="playback-main-group">
+          <button onclick="skipTime(-15)" class="text-slate-400 hover:text-blue-600 transition-colors p-2"
+            title="後退 15 秒">
+            <i class="fa-solid fa-rotate-left"></i>
+          </button>
+          <button onclick="togglePlayPause()" id="player-main-btn" class="main-play-btn" title="播放/暫停">
+            <i class="fa-solid fa-play ml-1"></i>
+          </button>
+          <button onclick="skipTime(30)" class="text-slate-400 hover:text-blue-600 transition-colors p-2"
+            title="前進 30 秒">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+        </div>
+
+        <!-- Right Side -->
+        <div class="player-controls-right flex items-center gap-2">
+          <button id="player-download-btn" onclick="handleDownload()"
+            class="hidden lg:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-all"
+            title="下載音訊檔">
+            <i class="fa-solid fa-download text-sm"></i>
+          </button>
           <button onclick="toggleQueuePanel()"
             class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-all"
             title="播放佇列">
@@ -5341,6 +5377,9 @@
             <i class="fa-solid fa-down-left-and-up-right-to-center text-xs"></i>
           </button>
         </div>
+
+        <!-- Compatibility for Desktop (hidden) -->
+        <div class="player-controls hidden"></div>
       </div>
     </div>
   </div>
