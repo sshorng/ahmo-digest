@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>阿墨汐讀</title>
+  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/4475/4475622.png">
   <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
@@ -1471,7 +1472,7 @@
     class="fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-200 transform -translate-x-full transition-transform duration-300 md:translate-x-0 md:static md:flex md:flex-col md:w-64 md:shrink-0 h-full flex flex-col shadow-2xl md:shadow-none">
     <div class="px-6 pt-8 pb-6 flex flex-col space-y-4">
       <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-3 group">
+        <a id="logo-link" href="#" target="_blank" class="flex items-center space-x-3 group cursor-pointer">
           <div
             class="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100 group-hover:scale-105 transition-transform duration-300">
             <i class="fa-solid fa-rss text-white text-lg"></i>
@@ -1485,18 +1486,13 @@
               class="text-[9px] font-bold text-slate-400 uppercase tracking-[0.25em] mt-1.5 ml-0.5 whitespace-nowrap">Ahmo
               Digest</span>
           </div>
-        </div>
+        </a>
 
         <div class="flex items-center space-x-1">
           <button onclick="showSettings()"
             class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
             title="系統設定">
             <i class="fa-solid fa-cog text-sm"></i>
-          </button>
-          <button onclick="showInstructions()"
-            class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
-            title="運作說明">
-            <i class="fa-solid fa-circle-info text-sm"></i>
           </button>
           <button onclick="toggleSidebar(false)"
             class="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">
@@ -1952,7 +1948,7 @@
     const DEFAULT_GAS_URL = "";
 
     // 核心資料物件
-    let allData = { articles: [], readIds: new Set(), starredIds: new Set(), subscriptions: [], queue: [], podcastProgress: {}, settings: {} };
+    let allData = { articles: [], readIds: new Set(), starredIds: new Set(), subscriptions: [], queue: [], podcastProgress: {}, settings: {}, spreadsheetUrl: "" };
 
     /**
      * 獲取目前有效的 GAS URL (優先權: 網址參數 > LocalStorage > 硬編碼)
@@ -2277,6 +2273,11 @@
             }
           }
 
+          if (res.spreadsheetUrl) {
+            allData.spreadsheetUrl = res.spreadsheetUrl;
+            const logoLink = document.getElementById('logo-link');
+            if (logoLink) logoLink.href = res.spreadsheetUrl;
+          }
           sortAndCacheArticles();
           applyPlayerDisplay();
 
@@ -4215,7 +4216,7 @@
 
     /* --- Queue System --- */
     function handleToggleQueue(id) {
-      const idx = allData.queue.findIndex(it => it.id === id);
+      const idx = allData.queue.indexOf(id);
       const isRemoving = idx !== -1;
 
       if (isRemoving) {
@@ -4273,7 +4274,7 @@
 
     function playNextInQueue() {
       // 找到目前這首在佇列中的位置並移除
-      const currentIdx = allData.queue.findIndex(qid => qid === currentPlayingId);
+      const currentIdx = allData.queue.indexOf(currentPlayingId);
       if (currentIdx !== -1) {
         updateStarStatus(currentPlayingId, false);
         allData.queue.splice(currentIdx, 1);
