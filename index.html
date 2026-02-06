@@ -4451,13 +4451,22 @@
     /**
      * 開啟設定面板
      */
+    /**
+         * 開啟設定面板 (⚙️)
+         * [修正] 優先讀取試算表回傳的設定 (allData.settings)，若無才讀取本地暫存
+         */
     function showSettings() {
       const modal = document.createElement('div');
       modal.className = 'fixed inset-0 z-[400] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in';
       modal.id = 'settings-modal';
 
       const currentUrl = localStorage.getItem('gas_web_app_url') || DEFAULT_GAS_URL;
-      const currentApiKey = localStorage.getItem('gemini_api_key') || "";
+
+      // [關鍵修正] 這裡增加了 allData.settings.GEMINI_API_KEY 的判斷
+      // 確保優先顯示從資料表同步下來的金鑰
+      const currentApiKey = (allData.settings && allData.settings.GEMINI_API_KEY)
+        ? allData.settings.GEMINI_API_KEY
+        : (localStorage.getItem('gemini_api_key') || "");
 
       modal.innerHTML = `
         <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transform animate-pop-in">
@@ -4466,7 +4475,6 @@
             <button onclick="this.closest('#settings-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
           </div>
           <div class="p-8 overflow-y-auto space-y-6">
-            <!-- GAS URL Setting -->
             <div>
               <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">GAS Web App URL</label>
               <div class="relative">
@@ -4477,7 +4485,6 @@
               <p class="text-[10px] text-slate-400 mt-2 ml-1">連結至您的 Google Apps Script 後端伺服器。</p>
             </div>
 
-            <!-- Gemini API Key Setting -->
             <div>
               <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Gemini API Key (支援多金鑰輪替)</label>
               <div class="relative">
@@ -4488,7 +4495,6 @@
               <p class="text-[10px] text-slate-400 mt-2 ml-1">建議每行貼上一組金鑰。系統會自動儲存至試算表的「系統設定」分頁以達成跨裝置同步。</p>
             </div>
 
-            <!-- Share Section -->
             <div class="bg-blue-50/50 rounded-2xl p-5 border border-blue-100/50">
               <h4 class="text-xs font-bold text-blue-600 mb-3 flex items-center"><i class="fa-solid fa-share-nodes mr-2"></i> 分享目前設定</h4>
               <button onclick="handleGenerateShareLink()" id="share-btn" class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 mb-3">
