@@ -516,12 +516,13 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(255, 255, 255, 0.98);
-      backdrop-filter: blur(20px);
-      border-top: 1px solid #e2e8f0;
-      padding: 0.75rem 1.5rem;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
       z-index: 110;
-      box-shadow: 0 -10px 30px -5px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 -10px 40px -10px rgba(0, 0, 0, 0.08);
+      padding: 0.75rem 1.5rem;
       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -539,16 +540,16 @@
       border-radius: 28px;
       background: #3b82f6;
       color: white;
-      box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
-      z-index: 120;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5);
+      z-index: 105;
       opacity: 0;
       pointer-events: none;
       transform: scale(0.5);
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     #podcast-floating-ball.show {
@@ -557,16 +558,12 @@
       transform: scale(1);
     }
 
-    #podcast-floating-ball:hover {
-      transform: scale(1.1) rotate(15deg);
-    }
-
     #podcast-floating-ball .playing-anim {
       position: absolute;
       width: 100%;
       height: 100%;
       border-radius: 50%;
-      border: 2px solid rgba(255, 255, 255, 0.3);
+      border: 3px solid #3b82f6;
       animation: ball-pulse 2s infinite;
     }
 
@@ -577,7 +574,7 @@
       }
 
       100% {
-        transform: scale(1.5);
+        transform: scale(1.6);
         opacity: 0;
       }
     }
@@ -590,49 +587,154 @@
       gap: 1.5rem;
     }
 
+    /* --- Custom Range Input (Progress Bar) --- */
+    .progress-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .time-display {
+      font-size: 10px;
+      font-weight: 600;
+      color: #94a3b8;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      min-width: 35px;
+    }
+
+    .progress-bar-wrap {
+      flex: 1;
+      height: 4px;
+      background: #e2e8f0;
+      border-radius: 2px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .custom-progress {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 30px;
+      background: transparent;
+      outline: none;
+      margin: 0;
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      z-index: 5;
+      cursor: pointer;
+    }
+
+    .custom-progress::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #3b82f6;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+      border: 2px solid white;
+      transition: transform 0.2s;
+    }
+
+    .custom-progress::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .progress-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background: #3b82f6;
+      border-radius: 2px;
+      pointer-events: none;
+      width: 0%;
+      z-index: 1;
+    }
+
+    /* Main Play/Pause Big Button */
+    .main-play-btn {
+      width: 44px;
+      height: 44px;
+      background: #3b82f6;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .main-play-btn:hover {
+      transform: scale(1.05);
+      background: #2563eb;
+    }
+
+    .main-play-btn:active {
+      transform: scale(0.95);
+    }
+
     .playback-main-group {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      flex: 1;
+      gap: 0.75rem;
+      order: 1;
+    }
+
+    .player-info-plus-controls {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      min-width: 0;
+      flex: 1.5;
       order: 2;
     }
 
     .player-meta-group {
       display: flex;
-      align-items: center;
-      gap: 1.5rem;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+      flex: 1;
       order: 1;
     }
 
     .player-info {
-      flex: 0 0 240px;
+      flex: 1;
       min-width: 0;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+    }
+
+    .player-title-wrap {
+      overflow: hidden;
+      width: 100%;
       position: relative;
     }
 
     .player-title {
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       font-weight: 700;
       color: #1e293b;
       white-space: nowrap;
-      padding-right: 2rem;
-      /* 跑馬燈間距 */
-    }
-
-    .player-subtitle {
-      font-size: 0.7rem;
-      color: #64748b;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: block;
-    }
-
-    .marquee-track {
       display: flex;
       width: max-content;
+    }
+
+    .marquee-span {
+      padding-right: 60px;
+      display: inline-block;
+    }
+
+    .player-title.animating {
       animation: player-marquee 20s linear infinite;
     }
 
@@ -995,98 +1097,76 @@
         padding: 0.75rem !important;
       }
 
-      /* Mobile Podcast Player - 改為兩層佈局確保所有按鈕可見 */
+      /* Mobile Podcast Player */
       #podcast-player-bar {
-        height: auto;
-        padding: 12px 15px;
+        padding: 10px 16px 16px 16px;
       }
 
       #podcast-player-bar .player-content {
         flex-direction: column;
-        gap: 12px;
-        align-items: stretch;
+        gap: 8px;
       }
 
       .playback-main-group {
         width: 100%;
-        order: 1;
-        gap: 10px;
+        order: 2;
+        justify-content: center;
+        gap: 25px;
       }
 
       .player-info-plus-controls {
-        order: 2;
+        order: 1;
         width: 100%;
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        gap: 6px;
-        min-width: 0;
+        gap: 12px;
+        align-items: flex-start;
       }
 
       .player-meta-group {
         flex: 1;
         min-width: 0;
-        gap: 0;
       }
 
       .player-info {
-        flex: 1;
-        min-width: 0;
         text-align: left;
       }
 
+      .player-title {
+        font-size: 0.95rem;
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        line-height: 1.3;
+        margin-bottom: 2px;
+      }
+
       .player-subtitle {
-        display: block;
-        font-size: 0.65rem;
+        font-size: 0.75rem;
+        opacity: 0.6;
       }
 
       .player-controls {
-        flex: 0 0 auto;
-        display: flex;
-        gap: 4px;
-        justify-content: flex-end;
-        align-items: center;
+        flex-shrink: 0;
+        gap: 8px;
       }
 
-      .audio-main-el {
-        flex: 1;
-        max-width: none;
-        height: 36px;
+      .progress-container {
+        order: 3;
+        width: 100%;
+        margin-top: 4px;
       }
 
       .skip-btn {
-        width: 36px;
-        height: 36px;
-        font-size: 16px;
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
       }
 
-      #queue-panel {
-        width: 100vw;
-        right: 0;
-        bottom: 100%;
-        border-radius: 20px 20px 0 0;
-        margin-bottom: 0px;
-        max-height: 60vh;
-      }
-
-      #podcast-floating-ball {
+      .main-play-btn {
         width: 50px;
         height: 50px;
-        bottom: 45px;
-        /* 再下調一點，避開內容但好操作 */
-        right: 15px;
-      }
-
-      #speed-menu {
-        left: auto;
-        right: 15px;
-        bottom: calc(100% + 10px);
-        transform: translateY(10px);
-      }
-
-      #speed-menu.show {
-        transform: translateY(0);
+        font-size: 22px;
       }
     }
 
@@ -2174,6 +2254,10 @@
       // 2. 嘗試讀取本地快取
       loadStateFromLocal();
 
+      // [新增] 套用速度與顯示模式介面
+      syncSpeedUI();
+      applyPlayerDisplay();
+
       // 3. 初始載入
       refreshAll();
 
@@ -2325,11 +2409,8 @@
           allData.starredIds = new Set(res.starredIds || []);
           allData.subscriptions = res.subscriptions || [];
           allData.settings = res.settings || {};
-
-
-
-          if (res.podcastQueue) allData.queue = res.podcastQueue;
-          if (res.podcastProgress) allData.podcastProgress = res.podcastProgress;
+          allData.queue = res.podcastQueue || []; // 確保始終為陣列
+          allData.podcastProgress = res.podcastProgress || {};
 
           // [新增] 還原播放器狀態 (正在播放ID, 速度, 顯示模式)
           if (res.playerState) {
@@ -2344,6 +2425,7 @@
                 initPlayer(activeArt, false); // 不自動播放，僅載入狀態
               }
             }
+            syncSpeedUI(); // 同步雲端速度
           }
 
           if (res.spreadsheetUrl) {
@@ -4022,47 +4104,71 @@
 
       // If same audio is already playing, just make sure it's playing if requested
       if (player.src === article.audioUrl) {
-        if (immediatePlay) player.play();
-        renderQueue(); // 確保 UI 更新
+        if (immediatePlay) {
+          player.play();
+          if (playerDisplayMode === 'ball') togglePlayerDisplay('bar');
+        }
+        applyPlayerDisplay();
+        renderQueue();
         return;
       }
 
       player.src = article.audioUrl;
-      title.innerText = article.title;
-      const titleDup = document.getElementById('player-item-title-duplicate');
-      if (titleDup) titleDup.innerText = article.title;
+
+      // 優化跑馬燈：雙層結構實現無縫滾動
+      title.innerHTML = `<span class="marquee-span">${article.title}</span>`;
+      title.classList.remove('animating');
+      title.style.transform = 'none';
+
+      // 檢查是否溢出
+      setTimeout(() => {
+        const wrap = title.parentElement;
+        if (title.scrollWidth > wrap.offsetWidth + 10) {
+          title.innerHTML = `<span class="marquee-span">${article.title}</span><span class="marquee-span">${article.title}</span>`;
+          title.classList.add('animating');
+        }
+      }, 100);
 
       subtitle.innerText = article.source;
 
-      // 移除自動標為已讀，改為播放完畢才標記
+      // Update Download Link
+      const dlBtn = document.getElementById('player-download-btn');
+      if (dlBtn) dlBtn.onclick = () => handleDownload(article.audioUrl, article.title);
 
-      // Restore progress (Cloud first, then local)
-      const cloudProgress = allData.podcastProgress[article.id];
-      const localProgress = localStorage.getItem('podcast_progress_' + article.id);
-      const progress = cloudProgress || localProgress;
+      // Restore progress
+      const progress = allData.podcastProgress[article.id] || localStorage.getItem('podcast_progress_' + article.id);
 
-      // Re-apply speed and ensure it stays through source changes
       player.playbackRate = currentPlaybackSpeed;
       player.defaultPlaybackRate = currentPlaybackSpeed;
 
       let seekAttempted = false;
       player.onloadedmetadata = () => {
         player.playbackRate = currentPlaybackSpeed;
+        syncSpeedUI(); // 再次確保 UI 同步
+        document.getElementById('player-duration').innerText = formatTime(player.duration);
+        document.getElementById('player-progress').max = Math.floor(player.duration);
 
-        // 從紀錄中恢復進度 (儲存時已扣 5 秒，此處直接採用)
         if (!seekAttempted && progress) {
-          const resumePoint = Math.max(0, parseFloat(progress));
-          player.currentTime = resumePoint;
+          player.currentTime = Math.max(0, parseFloat(progress));
           seekAttempted = true;
-          console.log(`Resumed playback at ${resumePoint}s from ${cloudProgress ? 'Cloud' : 'Local'}`);
         }
       };
 
-      // 紀錄播放進度 (儲存時預扣 5 秒作為下次續傳的 Buffer，避免每次重整累積扣除)
       player.ontimeupdate = () => {
-        // 僅在播放中且進度發生實質變動時更新，避免暫停或重整時誤觸
         if (player.currentTime > 0 && !player.paused) {
-          const savePoint = Math.max(0, player.currentTime - 5);
+          const currentTime = player.currentTime;
+          const duration = player.duration;
+
+          // Update UI
+          document.getElementById('player-current-time').innerText = formatTime(currentTime);
+          const progressInput = document.getElementById('player-progress');
+          progressInput.value = Math.floor(currentTime);
+
+          const percent = (currentTime / duration) * 100;
+          document.getElementById('player-progress-fill').style.width = percent + '%';
+
+          // Sync logic
+          const savePoint = Math.max(0, currentTime - 5);
           allData.podcastProgress[article.id] = savePoint;
           localStorage.setItem('podcast_progress_' + article.id, savePoint);
           debounceSyncProgress();
@@ -4071,40 +4177,89 @@
 
       player.onplay = () => {
         player.playbackRate = currentPlaybackSpeed;
+        updatePlayerUI(true);
         renderQueue();
       };
 
       player.onpause = () => {
         forceSyncProgress();
+        updatePlayerUI(false);
         renderQueue();
       };
 
       player.onended = () => {
-        // 播放完畢：標記已讀、取消收藏、清理進度紀錄、播放下一首
         markAsReadInline(article.id);
         updateStarStatus(article.id, false);
-
-        // 清理該 ID 的進度紀錄 (設為 0 會被伺服器端移除)
         allData.podcastProgress[article.id] = 0;
         localStorage.removeItem('podcast_progress_' + article.id);
-
         forceSyncProgress();
         playNextInQueue();
       };
 
+      // Progress Bar Interaction
+      const progressInput = document.getElementById('player-progress');
+      progressInput.oninput = (e) => {
+        const val = e.target.value;
+        const duration = player.duration;
+        const percent = (val / duration) * 100;
+        document.getElementById('player-progress-fill').style.width = percent + '%';
+        document.getElementById('player-current-time').innerText = formatTime(val);
+      };
+
+      progressInput.onchange = (e) => {
+        player.currentTime = e.target.value;
+      };
+
       if (immediatePlay) {
-        // 先啟動播放，不要被後面的 UI 渲染擋住
         player.play().catch(e => console.log("Auto-play blocked:", e));
       }
 
-      // 將 UI 渲染移到下一幀，保證音訊優先啟動
       setTimeout(() => {
         if (playerDisplayMode === 'ball' && immediatePlay) togglePlayerDisplay('bar');
         else applyPlayerDisplay();
-
         renderQueue();
         syncPlayerStateToCloud();
       }, 0);
+    }
+
+    function togglePlayPause() {
+      const player = document.getElementById('main-audio-player');
+      if (!player || !player.src) return;
+      if (player.paused) {
+        player.play().catch(e => console.warn("Play failed:", e));
+      } else {
+        player.pause();
+      }
+    }
+
+    function formatTime(seconds) {
+      if (isNaN(seconds) || seconds === Infinity) return "00:00";
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      if (h > 0) {
+        return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      }
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function updatePlayerUI(isPlaying) {
+      const btn = document.getElementById('player-main-btn');
+      if (btn) {
+        btn.innerHTML = isPlaying ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play ml-1"></i>';
+      }
+    }
+
+    function handleDownload(url, title) {
+      if (!url) return;
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = (title || 'podcast') + '.mp3';
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("開始下載音訊檔案");
     }
 
     function closePlayer() {
@@ -4118,7 +4273,6 @@
       syncPlayerStateToCloud();
     }
 
-    // --- Player Visibility Toggle ---
     function togglePlayerDisplay(mode) {
       playerDisplayMode = mode;
       localStorage.setItem('podcast_display_mode', mode);
@@ -4130,8 +4284,7 @@
       const bar = document.getElementById('podcast-player-bar');
       const ball = document.getElementById('podcast-floating-ball');
 
-      // 只要有正在播放或佇列中有東西，就必定顯示其中一個
-      const hasContent = (currentPlayingId || allData.queue.length > 0);
+      const hasContent = (currentPlayingId || (allData.queue && allData.queue.length > 0));
 
       if (!hasContent) {
         bar.classList.add('player-hidden');
@@ -4139,20 +4292,16 @@
         return;
       }
 
-      // [優化] 如果目前沒有正在播放的 ID，預設強迫顯示為「球」，避免出現空白播放列
       let effectiveMode = playerDisplayMode;
       if (!currentPlayingId) effectiveMode = 'ball';
 
       if (effectiveMode === 'ball') {
-        // 球顯示，條隱藏
         bar.classList.add('player-hidden');
         ball.classList.add('show');
       } else {
-        // 條模式，且有正在播放的項目
         bar.classList.remove('player-hidden');
         ball.classList.remove('show');
 
-        // [新功能] 同步播放條上的 AI 按鈕狀態
         const aiBtn = document.getElementById('player-ai-btn');
         if (aiBtn && currentPlayingId) {
           const a = (allData.articles || []).find(it => it.id === currentPlayingId);
@@ -4170,25 +4319,33 @@
       }
     }
 
-    function setPlaybackSpeed(speed) {
-      const player = document.getElementById('main-audio-player');
-      currentPlaybackSpeed = speed;
-      localStorage.setItem('podcast_speed', speed);
-
+    function syncSpeedUI() {
       const trigger = document.getElementById('speed-trigger');
-      if (trigger) trigger.innerText = speed + 'x';
+      if (trigger) trigger.innerText = currentPlaybackSpeed + 'x';
 
       const menu = document.getElementById('speed-menu');
       if (menu) {
-        menu.classList.remove('show');
         menu.querySelectorAll('.speed-menu-item').forEach(b => {
-          b.classList.toggle('active', parseFloat(b.innerText) === speed);
+          const val = parseFloat(b.innerText);
+          b.classList.toggle('active', val === currentPlaybackSpeed);
         });
       }
 
+      const player = document.getElementById('main-audio-player');
       if (player) {
-        player.playbackRate = speed;
+        player.playbackRate = currentPlaybackSpeed;
+        player.defaultPlaybackRate = currentPlaybackSpeed;
       }
+    }
+
+    function setPlaybackSpeed(speed) {
+      currentPlaybackSpeed = speed;
+      localStorage.setItem('podcast_speed', speed);
+      syncSpeedUI();
+
+      const menu = document.getElementById('speed-menu');
+      if (menu) menu.classList.remove('show');
+
       syncPlayerStateToCloud();
     }
 
@@ -4481,16 +4638,7 @@
       }
     }
 
-    function togglePlayPause() {
-      const player = document.getElementById('main-audio-player');
-      if (!player || !player.src) return;
-      if (player.paused) {
-        player.play().catch(e => console.warn("Play failed:", e));
-      } else {
-        player.pause();
-      }
-      // UI 更新由 player.onplay/onpause 觸發的 renderQueue() 處理
-    }
+    // 移除重複定義，已移至上方
 
     // [修正] 全局點擊監聽：點選外部時自動收合佇列與倍速選單
     document.addEventListener('click', (e) => {
@@ -5104,64 +5252,75 @@
     </div>
 
     <div class="player-content overflow-visible">
+      <audio id="main-audio-player"></audio>
+
+      <!-- Info & Progress (Left) -->
+      <div class="player-meta-group">
+        <div class="player-info">
+          <div class="player-title-wrap">
+            <div class="player-title" id="player-item-title" onclick="openFullContentModal(currentPlayingId)">Podcast 標題
+            </div>
+          </div>
+          <div id="player-item-subtitle" class="player-subtitle text-[10px] text-slate-400 truncate opacity-80"
+            onclick="setSourceFilter(this.innerText)">來源名稱</div>
+        </div>
+
+        <div class="progress-container">
+          <span id="player-current-time" class="time-display text-left">00:00</span>
+          <div class="progress-bar-wrap" id="progress-wrap">
+            <input type="range" id="player-progress" class="custom-progress" min="0" max="100" value="0">
+            <div id="player-progress-fill" class="progress-fill"></div>
+          </div>
+          <span id="player-duration" class="time-display text-right">00:00</span>
+        </div>
+      </div>
+
+      <!-- Playback Controls (Center) -->
       <div class="playback-main-group">
-        <button onclick="skipTime(-15)" class="skip-btn" title="後退 15 秒">
+        <button onclick="skipTime(-15)" class="text-slate-400 hover:text-blue-600 transition-colors p-2"
+          title="後退 15 秒">
           <i class="fa-solid fa-rotate-left"></i>
         </button>
-
-        <audio id="main-audio-player" controls class="audio-main-el outline-none"></audio>
-
-        <button onclick="skipTime(30)" class="skip-btn" title="前進 30 秒">
+        <button onclick="togglePlayPause()" id="player-main-btn" class="main-play-btn" title="播放/暫停">
+          <i class="fa-solid fa-play ml-1"></i>
+        </button>
+        <button onclick="skipTime(30)" class="text-slate-400 hover:text-blue-600 transition-colors p-2" title="前進 30 秒">
           <i class="fa-solid fa-rotate-right"></i>
         </button>
       </div>
 
-      <div class="player-info-plus-controls">
-        <div class="player-meta-group">
-          <div class="player-info">
-            <div class="marquee-track cursor-pointer hover:text-blue-500 transition-colors"
-              onclick="openFullContentModal(currentPlayingId)" title="開啟全文內容">
-              <div id="player-item-title" class="player-title">Podcast 標題</div>
-              <div id="player-item-title-duplicate" class="player-title">Podcast 標題</div>
-            </div>
-            <div id="player-item-subtitle"
-              class="player-subtitle player-info-subtitle cursor-pointer hover:text-blue-300 transition-colors"
-              onclick="setSourceFilter(this.innerText)" title="篩選此節目">來源名稱</div>
+      <!-- Secondary Controls (Right) -->
+      <div class="player-controls">
+        <button id="player-download-btn" onclick="handleDownload()"
+          class="hidden lg:flex w-8 h-8 items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-all"
+          title="下載音訊檔">
+          <i class="fa-solid fa-download text-sm"></i>
+        </button>
+        <button id="player-ai-btn" onclick="handleGenerateAI(currentPlayingId, this)"
+          class="ai-sparkle-btn w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-all grayscale opacity-60"
+          title="查看或生成 AI 筆記">
+          <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+        </button>
+        <div class="speed-menu-container relative">
+          <button onclick="toggleSpeedMenu()" id="speed-trigger"
+            class="px-2 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] hover:bg-slate-200 transition-all">1.0x</button>
+          <div id="speed-menu">
+            <div class="speed-menu-item active" onclick="setPlaybackSpeed(1.0)">1.0x</div>
+            <div class="speed-menu-item" onclick="setPlaybackSpeed(1.25)">1.25x</div>
+            <div class="speed-menu-item" onclick="setPlaybackSpeed(1.5)">1.5x</div>
+            <div class="speed-menu-item" onclick="setPlaybackSpeed(2.0)">2.0x</div>
           </div>
         </div>
-
-        <div class="player-controls">
-          <button id="player-ai-btn" onclick="handleGenerateAI(currentPlayingId, this)"
-            class="ai-sparkle-btn w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-all grayscale opacity-60"
-            title="生成此 Podcast 的 AI 筆記">
-            <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
-          </button>
-
-          <div class="speed-menu-container">
-            <button onclick="toggleSpeedMenu()" id="speed-trigger"
-              class="px-2 h-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 font-bold text-[10px] hover:bg-slate-200 transition-all">
-              1.0x
-            </button>
-            <div id="speed-menu">
-              <div class="speed-menu-item active" onclick="setPlaybackSpeed(1.0)">1.0x</div>
-              <div class="speed-menu-item" onclick="setPlaybackSpeed(1.25)">1.25x</div>
-              <div class="speed-menu-item" onclick="setPlaybackSpeed(1.5)">1.5x</div>
-              <div class="speed-menu-item" onclick="setPlaybackSpeed(2.0)">2.0x</div>
-            </div>
-          </div>
-
-          <button onclick="toggleQueuePanel()"
-            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-all"
-            title="播放佇列">
-            <i class="fa-solid fa-list-ol"></i>
-          </button>
-
-          <button onclick="togglePlayerDisplay('ball')"
-            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-300 hover:text-blue-500 transition-all"
-            title="收合為懸浮球">
-            <i class="fa-solid fa-down-left-and-up-right-to-center text-xs"></i>
-          </button>
-        </div>
+        <button onclick="toggleQueuePanel()"
+          class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-all"
+          title="播放佇列">
+          <i class="fa-solid fa-list-ol text-sm"></i>
+        </button>
+        <button onclick="togglePlayerDisplay('ball')"
+          class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-blue-500 transition-all"
+          title="切換為懸浮球">
+          <i class="fa-solid fa-down-left-and-up-right-to-center text-xs"></i>
+        </button>
       </div>
     </div>
   </div>
