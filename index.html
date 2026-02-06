@@ -516,13 +516,14 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(15px);
       -webkit-backdrop-filter: blur(15px);
       border-top: 1px solid rgba(0, 0, 0, 0.05);
       z-index: 110;
       box-shadow: 0 -10px 40px -10px rgba(0, 0, 0, 0.08);
-      padding: 0.75rem 1.5rem;
+      padding: 0.5rem 1.5rem;
+      /* 降低高度 */
       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -535,16 +536,17 @@
       position: fixed;
       bottom: 2rem;
       right: 1.5rem;
-      width: 56px;
-      height: 56px;
-      border-radius: 28px;
+      width: 48px;
+      /* 縮小：原為 56px */
+      height: 48px;
+      border-radius: 24px;
       background: #3b82f6;
       color: white;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5);
+      box-shadow: 0 8px 20px -5px rgba(59, 130, 246, 0.5);
       z-index: 105;
       opacity: 0;
       pointer-events: none;
@@ -684,7 +686,8 @@
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      order: 1;
+      order: 2;
+      /* 電腦版：播放控制在正中間 */
     }
 
     .player-info-plus-controls {
@@ -699,10 +702,11 @@
     .player-meta-group {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
       min-width: 0;
       flex: 1;
       order: 1;
+      /* 電腦版：節目資訊在左側 */
     }
 
     .player-info {
@@ -710,8 +714,33 @@
       min-width: 0;
       overflow: hidden;
       display: flex;
-      flex-direction: column;
-      text-align: left;
+      flex-direction: row;
+      /* 橫向排列：節目標籤 + 單集標題 */
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* 節目名稱標籤樣式 */
+    .player-subtitle {
+      flex-shrink: 0;
+      background: #dbeafe;
+      color: #2563eb;
+      padding: 2px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .player-subtitle:hover {
+      background: #bfdbfe;
+    }
+
+    /* 電腦版：隱藏手機專用時間顯示 */
+    .mobile-time-display {
+      display: none;
     }
 
     .player-title-wrap {
@@ -762,11 +791,38 @@
       align-items: center;
       gap: 0.75rem;
       order: 3;
+      /* 電腦版：輔助按鈕在右側 */
       white-space: nowrap;
     }
 
     .player-all-controls-group {
-      display: contents;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      order: 3;
+      /* 電腦版：整個控制組在右側 */
+    }
+
+    /* 電腦版：控制組內部排序 (播放 → AI/速度 → 佇列) */
+    .playback-main-group {
+      order: 1;
+      /* 播放/暫停 在最左 */
+    }
+
+    .player-controls-left {
+      order: 2;
+      /* AI/速度 在中間 */
+      display: flex !important;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .player-controls-right {
+      order: 3;
+      /* 佇列/縮小 在最右 */
+      display: flex !important;
+      align-items: center;
+      gap: 0.5rem;
     }
 
     .audio-main-el {
@@ -1101,99 +1157,149 @@
         padding: 0.75rem !important;
       }
 
-      /* Mobile Podcast Player (手機版終極優化) */
+      /* Mobile Podcast Player (手機版完整重寫) */
       #podcast-player-bar {
-        padding: 8px 12px 12px 12px;
+        padding: 10px 12px;
         height: auto;
       }
 
       #podcast-player-bar .player-content {
         flex-direction: column;
-        gap: 6px;
+        gap: 8px;
         align-items: stretch;
       }
 
-      /* 1. 資訊區 (置頂) */
+      /* ===== 第一行：資訊區 ===== */
       .player-meta-group {
         order: 1;
         width: 100%;
         display: flex;
-        flex-direction: column;
-        gap: 4px !important;
+        flex-direction: row !important;
+        align-items: center;
+        gap: 8px !important;
       }
 
-      .player-title {
-        font-size: 14px;
-        color: #1e293b;
-        font-weight: 700;
+      /* 手機版：隱藏進度條容器 */
+      .player-meta-group .progress-container {
+        display: none !important;
+      }
+
+      .player-info {
+        flex: 1;
         display: flex !important;
-        white-space: nowrap !important;
+        flex-direction: row !important;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
       }
 
       .player-subtitle {
-        font-size: 11px;
-        color: #3b82f6 !important;
-        font-weight: 700;
-        margin-bottom: 2px;
-        display: block !important;
+        flex-shrink: 0;
+        font-size: 10px;
+        background: #3b82f6 !important;
+        color: white !important;
+        padding: 2px 8px;
+        border-radius: 5px;
+        font-weight: 600;
+        max-width: 80px;
+        /* 限制最大寬度 */
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
-      /* 2. 恢復進度條 */
-      .progress-container {
+      .player-title-wrap {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .player-title {
+        font-size: 12px;
+        color: #1e293b;
+        font-weight: 600;
+        white-space: nowrap !important;
+      }
+
+      /* 手機版時間顯示容器 (右上角: 00:00 / 27:13) */
+      .mobile-time-display {
         display: flex !important;
-        width: 100%;
-        gap: 8px;
-        margin-bottom: 2px;
-        /* 減小底部間距 */
-        padding: 0 2px;
+        align-items: center;
+        flex-shrink: 0;
+        font-size: 10px;
+        color: #94a3b8;
+        font-weight: 500;
+        gap: 2px;
       }
 
-      .progress-container .time-display {
-        font-size: 9px;
-        min-width: 32px;
+      .mobile-time-separator {
+        color: #cbd5e1;
+        margin: 0 1px;
       }
 
-      /* 3. 按鈕區 (Grid 佈局實現播放鍵居中) */
+      /* 電腦版隱藏手機版時間容器 */
+      @media (min-width: 768px) {
+        .mobile-time-display {
+          display: none !important;
+        }
+      }
+
+      /* ===== 第二行：控制區 ===== */
       .player-all-controls-group {
         order: 2;
-        display: grid !important;
-        grid-template-columns: 1fr auto 1fr;
-        align-items: center;
-        border-top: 1px solid rgba(0, 0, 0, 0.05);
-        /* 稍微變淡 */
-        padding-top: 6px;
-        /* 減小頂部內距 */
-        margin-top: 0px;
-        /* 移除邊距 */
-      }
-
-      .playback-main-group {
-        grid-column: 2;
         display: flex !important;
-        justify-content: center !important;
-        gap: 16px !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100%;
+        padding: 0 !important;
         margin: 0 !important;
+        min-height: auto;
       }
 
+      /* 左側：時間 + AI + 速度 */
       .player-controls-left {
-        grid-column: 1;
+        flex: 1 !important;
         display: flex !important;
         justify-content: flex-start !important;
-        gap: 10px !important;
+        align-items: center !important;
+        order: 1 !important;
+        gap: 6px !important;
       }
 
+      /* 中間：播放控制 */
+      .playback-main-group {
+        flex: 0 !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        order: 2 !important;
+        gap: 8px !important;
+      }
+
+      /* 右側：佇列 + 縮小 */
       .player-controls-right {
-        grid-column: 3;
+        flex: 1 !important;
         display: flex !important;
         justify-content: flex-end !important;
-        gap: 10px !important;
+        align-items: center !important;
+        order: 3 !important;
+        gap: 6px !important;
       }
 
       /* 手機版按鈕尺寸 */
       .main-play-btn {
-        width: 44px;
-        height: 44px;
-        font-size: 16px;
+        width: 46px !important;
+        height: 46px !important;
+        font-size: 16px !important;
+        background: #3b82f6 !important;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35) !important;
+      }
+
+      .playback-main-group button:not(.main-play-btn) {
+        width: 36px;
+        height: 36px;
+        color: #64748b;
       }
 
       .playback-main-group button i {
@@ -1203,23 +1309,27 @@
       .player-controls-left button,
       .player-controls-right button,
       .speed-menu-container button {
-        width: 34px !important;
-        height: 34px !important;
+        width: 30px !important;
+        height: 30px !important;
+        background: transparent !important;
+        box-shadow: none !important;
         display: flex;
         align-items: center;
         justify-content: center;
+        font-size: 13px;
       }
 
-      .skip-btn {
-        width: 40px;
-        height: 40px;
-        font-size: 18px;
+      .speed-menu-container button {
+        width: auto !important;
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+        background: #f1f5f9 !important;
+        border-radius: 6px !important;
       }
 
-      .main-play-btn {
-        width: 50px;
-        height: 50px;
-        font-size: 22px;
+      /* 強制手機版隱藏下載鈕 */
+      #player-download-btn {
+        display: none !important;
       }
     }
 
@@ -1761,15 +1871,15 @@
       </div>
     </div>
 
-    <header
-      class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-3 md:px-8 z-20 sticky top-0 gap-2">
-      <div class="flex items-center space-x-3 shrink-0">
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center px-3 md:px-8 z-20 sticky top-0">
+      <!-- Left: Title Section (Fixed Width) -->
+      <div class="flex items-center space-x-3 shrink-0 w-[160px] md:w-auto">
         <!-- Menu Button for Mobile -->
         <button onclick="toggleSidebar(true)" class="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg">
           <i class="fa-solid fa-bars text-lg"></i>
         </button>
-        <div class="flex flex-col min-w-0 pr-2">
-          <h2 id="view-title" class="text-sm md:text-lg font-bold text-slate-800 truncate max-w-[150px] md:max-w-none">
+        <div class="flex flex-col min-w-0">
+          <h2 id="view-title" class="text-sm md:text-lg font-bold text-slate-800 truncate max-w-[100px] md:max-w-none">
             最近文章</h2>
           <div class="flex items-center space-x-2 h-6 text-slate-400">
             <span id="article-count"
@@ -1778,9 +1888,8 @@
           </div>
         </div>
       </div>
-
-      <!-- Search & Central Controls -->
-      <div class="hidden md:flex flex-1 items-center justify-center max-w-2xl mx-auto px-4 lg:px-6">
+      <!-- Center: Search & Central Controls (Auto fill) -->
+      <div class="hidden md:flex flex-1 items-center justify-center px-4 lg:px-6">
         <div id="search-pill"
           class="flex items-center w-full bg-slate-100 rounded-2xl p-1 shadow-sm border border-slate-200/50">
           <!-- Search Box -->
@@ -1831,7 +1940,7 @@
         </div>
 
         <!-- Mobile Buttons -->
-        <div class="md:hidden flex items-center space-x-0.5">
+        <div class="md:hidden flex items-center space-x-0.5 flex-shrink-0">
           <button onclick="toggleMobileSearch()" class="p-2 text-slate-500" title="搜尋"><i
               class="fa-solid fa-magnifying-glass text-sm"></i></button>
           <button id="mobile-display-toggle" onclick="toggleDisplayMode()" class="p-2 text-slate-500" title="切換顯示模式">
@@ -2372,7 +2481,8 @@
           readIds: Array.from(allData.readIds || []),
           collapsedCategories: Array.from(collapsedCategories || []),
           queue: allData.queue,
-          podcastProgress: allData.podcastProgress
+          podcastProgress: allData.podcastProgress,
+          currentPlayingId: currentPlayingId // [新增] 儲存正在播放的 ID
         };
         localStorage.setItem('rss_data_cache', JSON.stringify(data));
         console.log("Local cache saved.");
@@ -2393,6 +2503,14 @@
         if (data.collapsedCategories) collapsedCategories = new Set(data.collapsedCategories);
         if (data.queue) allData.queue = data.queue;
         if (data.podcastProgress) allData.podcastProgress = data.podcastProgress;
+
+        // [新增] 恢復正在播放的 ID 並初始化播放器
+        if (data.currentPlayingId && allData.articles) {
+          const art = allData.articles.find(a => a.id === data.currentPlayingId);
+          if (art) {
+            initPlayer(art, false); // 不自動播放，僅載入狀態
+          }
+        }
 
         // 立即渲染
         sortAndCacheArticles();
@@ -4198,7 +4316,9 @@
       player.onloadedmetadata = () => {
         player.playbackRate = currentPlaybackSpeed;
         syncSpeedUI(); // 再次確保 UI 同步
-        document.getElementById('player-duration').innerText = formatTime(player.duration);
+        const formattedDuration = formatTime(player.duration);
+        document.getElementById('player-duration').innerText = formattedDuration;
+        document.getElementById('player-mobile-duration').innerText = formattedDuration;
         document.getElementById('player-progress').max = Math.floor(player.duration);
 
         if (!seekAttempted && progress) {
@@ -4213,7 +4333,9 @@
           const duration = player.duration;
 
           // Update UI
-          document.getElementById('player-current-time').innerText = formatTime(currentTime);
+          const formattedTime = formatTime(currentTime);
+          document.getElementById('player-current-time').innerText = formattedTime;
+          document.getElementById('player-mobile-current-time').innerText = formattedTime;
           const progressInput = document.getElementById('player-progress');
           progressInput.value = Math.floor(currentTime);
 
@@ -4346,7 +4468,7 @@
       }
 
       let effectiveMode = playerDisplayMode;
-      if (!currentPlayingId) effectiveMode = 'ball';
+      // 移除強制回復 ball 的邏輯，讓用戶可以自由切換
 
       if (effectiveMode === 'ball') {
         bar.classList.add('player-hidden');
@@ -5310,12 +5432,19 @@
       <!-- Info & Progress (Left) -->
       <div class="player-meta-group">
         <div class="player-info">
+          <!-- 節目名稱標籤 (左側固定) -->
+          <div id="player-item-subtitle" class="player-subtitle" onclick="setSourceFilter(this.innerText)">來源名稱</div>
+          <!-- 單集標題 (中間滾動) -->
           <div class="player-title-wrap">
             <div class="player-title" id="player-item-title" onclick="openFullContentModal(currentPlayingId)">Podcast 標題
             </div>
           </div>
-          <div id="player-item-subtitle" class="player-subtitle text-[10px] text-slate-400 truncate opacity-80"
-            onclick="setSourceFilter(this.innerText)">來源名稱</div>
+          <!-- 手機版時間顯示 (右側: 當前/總時長) -->
+          <span class="mobile-time-display">
+            <span id="player-mobile-current-time">00:00</span>
+            <span class="mobile-time-separator">/</span>
+            <span id="player-mobile-duration">00:00</span>
+          </span>
         </div>
 
         <div class="progress-container">
@@ -5329,7 +5458,7 @@
       </div>
 
       <div class="player-all-controls-group">
-        <!-- Left Side (Mobile View) -->
+        <!-- Left Side (AI + 速度) -->
         <div class="player-controls-left flex items-center gap-2">
           <button id="player-ai-btn" onclick="handleGenerateAI(currentPlayingId, this)"
             class="ai-sparkle-btn w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-all grayscale opacity-60"
