@@ -1456,6 +1456,59 @@
     ::-webkit-scrollbar-thumb {
       background: #1a1a1a !important;
     }
+
+    /* --- Pull to Refresh --- */
+    .ptr-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0;
+      transform: translateY(-100%);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    .ptr-container.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .ptr-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #3b82f6;
+      font-size: 14px;
+      transition: transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+
+    .ptr-icon i {
+      transition: transform 0.2s;
+    }
+
+    .ptr-container.pulling .ptr-icon i {
+      transform: rotate(var(--ptr-rotate, 0deg));
+    }
+
+    .ptr-container.refreshing .ptr-icon i {
+      animation: spin 1s linear infinite;
+    }
+
+    #content-area {
+      transition: transform 0.15s ease-out;
+    }
   </style>
 </head>
 
@@ -1664,7 +1717,14 @@
       </div>
     </header>
 
-    <section id="content-area" class="flex-1 overflow-y-auto bg-slate-50/50 p-4 md:p-10">
+    <section id="content-area" class="flex-1 overflow-y-auto bg-slate-50/50 p-4 md:p-10 relative">
+      <!-- Pull to Refresh Indicator -->
+      <div id="ptr-indicator" class="ptr-container">
+        <div class="ptr-icon">
+          <i class="fa-solid fa-arrow-down"></i>
+        </div>
+      </div>
+
       <div id="loader" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         <div class="bg-white p-6 rounded-2xl border border-slate-100 h-44 shimmer"></div>
         <div class="bg-white p-6 rounded-2xl border border-slate-100 h-44 shimmer"></div>
@@ -4939,6 +4999,89 @@
         targetContent.classList.remove('hidden');
       }
     }
+
+    // --- Pull to Refresh Logic ---
+    function initPullToRefresh() {
+      const container = document.getElementById('content-area');
+      const ptr = document.getElementById('ptr-indicator');
+      const icon = ptr.querySelector('i');
+
+      let startY = 0;
+      let currentY = 0;
+      let isPulling = false;
+      const threshold = 80;
+      const maxPull = 120;
+
+      container.addEventListener('touchstart', (e) => {
+        if (container.scrollTop <= 0) {
+          startY = e.touches[0].pageY;
+          isPulling = true;
+        }
+      }, { passive: true });
+
+      container.addEventListener('touchmove', (e) => {
+        if (!isPulling) return;
+
+        currentY = e.touches[0].pageY;
+        const diff = currentY - startY;
+
+        if (diff > 0 && container.scrollTop <= 0) {
+          // Prevent default only if we are at the top and pulling down
+          if (e.cancelable) e.preventDefault();
+
+          const pullDistance = Math.min(diff * 0.5, maxPull);
+          container.style.transform = `translateY(${pullDistance}px)`;
+
+          ptr.classList.add('active', 'pulling');
+          const rotation = Math.min(pullDistance / threshold * 180, 180);
+          ptr.style.setProperty('--ptr-rotate', `${rotation}deg`);
+
+          if (pullDistance >= threshold) {
+            icon.className = 'fa-solid fa-arrow-up';
+          } else {
+            icon.className = 'fa-solid fa-arrow-down';
+          }
+        } else {
+          isPulling = false;
+          container.style.transform = '';
+          ptr.classList.remove('active', 'pulling');
+        }
+      }, { passive: false });
+
+      container.addEventListener('touchend', async () => {
+        if (!isPulling) return;
+        isPulling = false;
+
+        const diff = currentY - startY;
+        const pullDistance = Math.min(diff * 0.5, maxPull);
+
+        if (pullDistance >= threshold) {
+          ptr.classList.add('refreshing');
+          icon.className = 'fa-solid fa-rotate';
+          container.style.transform = `translateY(${threshold}px)`;
+
+          try {
+            await refreshAll();
+          } finally {
+            setTimeout(() => {
+              container.style.transform = '';
+              ptr.classList.remove('active', 'pulling', 'refreshing');
+            }, 300);
+          }
+        } else {
+          container.style.transform = '';
+          ptr.classList.remove('active', 'pulling');
+        }
+
+        startY = 0;
+        currentY = 0;
+      });
+    }
+
+    // Initialize after DOM loaded or state ready
+    window.addEventListener('load', () => {
+      initPullToRefresh();
+    });
   </script>
 
   <!-- Floating Ball -->
