@@ -1980,10 +1980,10 @@
     /**
      * 封裝 API 呼叫 (fetch 跨網域 POST/GET)
      */
-    async function callApi(action, data = {}, isPost = true) {
+    async function callApi(action, data = {}, isPost = true, silent = false, retryCount = 0) {
       const url = getGasUrl();
       if (!url) {
-        showCustomModal("連線設定請求", "尚未設定 GAS Web App URL。請點擊側邊欄的 ⚙️ 按鈕進行設定，或是使用分享連結。");
+        if (!silent) showCustomModal("連線設定請求", "尚未設定 GAS Web App URL。請點擊側邊欄的 ⚙️ 按鈕進行設定，或是使用分享連結。");
         throw new Error("Missing GAS URL");
       }
 
@@ -2007,13 +2007,25 @@
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const result = await response.json();
 
-        if (result.success === false) {
+        if (result.success === false && !silent) {
           showCustomModal("系統提示", result.message, "error");
         }
         return result.data || result;
       } catch (e) {
+        // [優化] 針對型別錯誤 (通常是網路斷線或 Fetch 失敗) 進行一次自動重試
+        const isNetworkError = (e instanceof TypeError) || e.toString().toLowerCase().includes('fetch');
+        if (isNetworkError && retryCount < 1) {
+          console.warn(`[API] 網路異常，嘗試第二次連線 (${action})...`, e);
+          await new Promise(r => setTimeout(r, 1500));
+          return callApi(action, data, isPost, silent, retryCount + 1);
+        }
+
         console.error("API Call Error:", e);
-        showCustomModal("連線失敗", "無法連接至 Google 伺服器，請檢查網路狀態或 API 網址是否正確。\n\n錯誤訊息：" + e.toString(), "error");
+        if (silent === 'toast') {
+          showToast("連線更新失敗，請檢查網路狀態", "error");
+        } else if (!silent) {
+          showCustomModal("連線失敗", "無法連接至 Google 伺服器，請檢查網路狀態或 API 網址是否正確。\n\n錯誤訊息：" + e.toString(), "error");
+        }
         throw e;
       }
     }
@@ -2244,7 +2256,8 @@
       }
 
       try {
-        const res = await callApi('getAllData', {}, false);
+        const hasCache = allData.articles && allData.articles.length > 0;
+        const res = await callApi('getAllData', {}, false, hasCache ? 'toast' : false);
         if (res) {
           allData = res;
           allData.articles = res.articles || [];
@@ -2472,7 +2485,7 @@
       if (nameInput.value.trim()) return;
 
       try {
-        const res = await callApi('detectRss', { url }, false);
+        const res = await callApi('detectRss', { url }, false, true);
         if (res.success && res.name) {
           nameInput.value = res.name;
           showToast(`已自動偵測網站標題：${res.name}`);
@@ -3296,7 +3309,7 @@
         });
 
         try {
-          const res = await callApi('syncSingleSource', { name: sub.name });
+          const res = await callApi('syncSingleSource', { name: sub.name }, true, true);
 
           if (res.success) {
             successCount++;
@@ -3445,7 +3458,7 @@
       // 如果將來佇列有星號，這裡可添加 logic
 
       // 3. 同步至後端
-      callApi('toggleStar', { id: articleId, shouldStar });
+      callApi('toggleStar', { id: articleId, shouldStar }, true, 'toast');
 
       // 更新側邊欄進度
       renderSidebar();
@@ -3730,7 +3743,7 @@
         }
 
         renderSidebar(); // 更新側邊欄計數
-        callApi('markAsRead', { id: articleId });
+        callApi('markAsRead', { id: articleId }, true, true);
       }
     }
 
@@ -3758,7 +3771,7 @@
         }
       }
 
-      callApi('setReadStatus', { id: articleId, status: newStatus });
+      callApi('setReadStatus', { id: articleId, status: newStatus }, true, 'toast');
     }
 
 
@@ -3790,7 +3803,7 @@
       showToast(`已將 ${idsToMark.length} 則文章標為已讀`);
 
       // 同步到後端
-      callApi('markMultipleAsRead', { ids: idsToMark }).then(res => {
+      callApi('markMultipleAsRead', { ids: idsToMark }, true, 'toast').then(res => {
         if (!res || !res.success) showToast("標記失敗，請稍後再試。", "error");
       });
     }
@@ -4158,7 +4171,7 @@
       }
       allData.podcastProgress = cleanedProgress;
 
-      callApi('savePodcastState', { type: 'progress', state: allData.podcastProgress });
+      callApi('savePodcastState', { type: 'progress', state: allData.podcastProgress }, true, true);
     }
 
     // 視窗關閉前嘗試同步
@@ -4169,7 +4182,7 @@
       if (document.visibilityState === 'visible') {
         console.log("App visible, refreshing cloud data...");
         // 僅在背景更新資料，不要打斷目前的播放或操作
-        callApi('getAllData', {}, false).then(res => {
+        callApi('getAllData', {}, false, true).then(res => {
           if (res && res.podcastProgress) {
             // 智慧合併進度：保留各篇文章中最晚的進度
             for (let id in res.podcastProgress) {
@@ -4198,7 +4211,7 @@
     });
 
     function syncQueueToServer() {
-      callApi('savePodcastState', { type: 'queue', state: allData.queue });
+      callApi('savePodcastState', { type: 'queue', state: allData.queue }, true, true);
     }
 
     let syncStateTimeout = null;
@@ -4210,7 +4223,7 @@
           speed: currentPlaybackSpeed,
           mode: playerDisplayMode
         };
-        callApi('savePodcastState', { type: 'playerState', state: state });
+        callApi('savePodcastState', { type: 'playerState', state: state }, true, true);
       }, 5000);
     }
 
