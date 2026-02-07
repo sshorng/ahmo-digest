@@ -1902,10 +1902,10 @@
 
           <!-- Central Actions (Condensed) -->
           <div class="flex items-center space-x-1 px-1 whitespace-nowrap">
-            <button onclick="refreshAll()"
+            <button onclick="handleManualCache()"
               class="p-2 text-slate-500 hover:text-blue-600 hover:bg-white rounded-xl transition-all flex items-center justify-center min-w-[36px]"
               title="重新整理">
-              <i id="refresh-icon" class="fa-solid fa-rotate-right text-sm"></i>
+              <i id="refresh-icon" class="fa-solid fa-cloud-arrow-down text-sm"></i>
             </button>
             <button onclick="markPageAsRead()"
               class="p-2 text-slate-500 hover:text-blue-600 hover:bg-white rounded-xl transition-all flex items-center justify-center min-w-[36px]"
@@ -2625,7 +2625,10 @@
       } catch (err) {
         console.error("Refresh failed", err);
       } finally {
-        [icon, mobileIcon].forEach(el => el?.classList.remove('fa-spin'));
+        const desktopRefreshIcon = document.getElementById('refresh-icon');
+        [icon, mobileIcon, desktopRefreshIcon].forEach(el => {
+          el?.classList.remove('fa-spin', 'text-blue-600');
+        });
         loader.classList.add('hidden');
         grid.classList.remove('hidden');
       }
@@ -2651,7 +2654,11 @@
       } catch (err) {
         console.error("Manual sync failed", err);
       } finally {
-        icon.classList.remove('fa-spin', 'text-blue-600');
+        const mainRefreshIcon = document.getElementById('refresh-icon');
+        const mobileRefreshIcon = document.getElementById('mobile-refresh-icon');
+        [icon, mainRefreshIcon, mobileRefreshIcon].forEach(el => {
+          el?.classList.remove('fa-spin', 'text-blue-600');
+        });
       }
     }
 
