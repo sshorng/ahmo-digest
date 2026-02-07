@@ -1948,8 +1948,8 @@
           </button>
           <button onclick="cycleTheme()" class="p-2 text-slate-500" title="切換佈景主題"><i
               class="fa-solid fa-palette text-sm"></i></button>
-          <button onclick="refreshAll()" class="p-2 text-slate-500" title="重新整理"><i id="mobile-refresh-icon"
-              class="fa-solid fa-rotate text-sm"></i></button>
+          <button onclick="handleManualCache()" class="p-2 text-slate-500" title="重新整理"><i id="mobile-refresh-icon"
+              class="fa-solid fa-cloud-arrow-down text-sm"></i></button>
           <div class="w-px h-4 bg-slate-300 mx-0.5 opacity-30"></div>
           <button onclick="markPageAsRead()" class="p-2 text-slate-500" title="全部已讀"><i
               class="fa-solid fa-check-double text-sm"></i></button>
@@ -2644,7 +2644,12 @@
         return;
       }
 
-      icon.classList.add('fa-spin', 'text-blue-600');
+      const mainRefreshIcon = document.getElementById('refresh-icon');
+      const mobileRefreshIcon = document.getElementById('mobile-refresh-icon');
+
+      [icon, mainRefreshIcon, mobileRefreshIcon].forEach(el => {
+        el?.classList.add('fa-spin', 'text-blue-600');
+      });
       statusArea.innerHTML = `<span class="text-blue-600 font-medium">同步中...</span>`;
 
       try {
