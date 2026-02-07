@@ -4339,6 +4339,11 @@
         }
       };
 
+      // [修正] 確保在可以播放時再次套用速度
+      player.oncanplay = () => {
+        player.playbackRate = currentPlaybackSpeed;
+      };
+
       player.ontimeupdate = () => {
         if (player.currentTime > 0 && !player.paused) {
           const currentTime = player.currentTime;
@@ -4398,7 +4403,10 @@
       };
 
       if (immediatePlay) {
-        player.play().catch(e => console.log("Auto-play blocked:", e));
+        player.play().then(() => {
+          // [關鍵] 在播放開始後再次強制套用速度，防止瀏覽器重置
+          player.playbackRate = currentPlaybackSpeed;
+        }).catch(e => console.log("Auto-play blocked:", e));
       }
 
       setTimeout(() => {
