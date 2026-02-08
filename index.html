@@ -3026,7 +3026,7 @@
           <div class="flex items-center flex-1 min-w-0" onclick="setCategoryFilter('${cat}')">
             <i class="fa-solid ${isCollapsed ? 'fa-folder' : 'fa-folder-open'} text-sm flex-shrink-0 mr-2" 
                onclick="event.stopPropagation(); toggleCategoryCollapse('${cat}')"></i>
-            <span class="truncate leading-none font-bold">${cat}</span>
+            <span class="truncate leading-none font-bold" title="${cat.replace(/"/g, '&quot;')}">${cat}</span>
           </div>
           <div class="flex-shrink-0 w-8 h-6 flex items-center justify-end">
             ${catStatusHtml}
@@ -3073,7 +3073,7 @@
             d.innerHTML = `
               <div class="flex items-center min-w-0 flex-1 pl-0 pr-2" title="最後同步: ${s.lastChecked || '未知'}">
                 <img src="${favicon}" onerror="this.style.display='none'" class="w-4 h-4 mr-2 rounded-sm flex-shrink-0 opacity-80" />
-                <span class="truncate leading-none ${isError ? 'text-red-400 font-bold' : ''}">${s.name}</span>
+                <span class="truncate leading-none ${isError ? 'text-red-400 font-bold' : ''}" title="${s.name.replace(/"/g, '&quot;')}">${s.name}</span>
               </div>
               
               <!-- 常駐顯示的未讀/同步狀態 (固定寬度且靠右對齊) -->
@@ -3959,7 +3959,7 @@
                 </div>
               </div>
             </div>
-            <h3 class="text-base font-bold text-slate-800 mb-1 line-clamp-2 hover:text-blue-600 transition-colors leading-snug">${a.title}</h3>
+            <h3 class="text-base font-bold text-slate-800 mb-1 line-clamp-2 hover:text-blue-600 transition-colors leading-snug" title="${a.title.replace(/"/g, '&quot;')}">${a.title}</h3>
             <p class="text-[13px] text-slate-500 line-clamp-3 mb-2 text-justify leading-relaxed opacity-90">${plainDesc}...</p>
             <div class="flex justify-end items-center mt-auto border-t border-slate-50 pt-1.5 w-full space-x-1.5">
                 ${getAiButtonHtml(a)}
@@ -3994,7 +3994,7 @@
                   <div class="flex-1 min-w-0">
                      <!-- Row 1: Title & Date -->
                      <div class="flex justify-between items-start mb-1 gap-4">
-                        <h3 class="text-[14px] font-bold text-slate-800 leading-tight line-clamp-2 transition-colors hover:text-blue-600">${a.title}</h3>
+                        <h3 class="text-[14px] font-bold text-slate-800 leading-tight line-clamp-2 transition-colors hover:text-blue-600" title="${a.title.replace(/"/g, '&quot;')}">${a.title}</h3>
                         <span class="text-[10px] font-medium text-slate-400 whitespace-nowrap opacity-70">${dateStr}</span>
                      </div>
                      
