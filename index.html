@@ -4579,15 +4579,13 @@
     function forceSyncProgress() {
       if (syncProgressTimeout) clearTimeout(syncProgressTimeout);
 
-      // [優化] 同步前清理：移除進度極小或已標記為 0 (結束) 的項目
-      const cleanedProgress = {};
-      for (const id in allData.podcastProgress) {
-        const val = parseFloat(allData.podcastProgress[id]);
-        if (val > 10) cleanedProgress[id] = val;
+      // [Delta Sync] 僅同步目前正在播放的單集進度，避免覆蓋其他集數
+      if (currentPlayingId && allData.podcastProgress[currentPlayingId]) {
+        const delta = {};
+        delta[currentPlayingId] = allData.podcastProgress[currentPlayingId];
+        console.log("Syncing delta progress:", delta);
+        callApi('savePodcastState', { type: 'progress', state: delta }, true, true);
       }
-      allData.podcastProgress = cleanedProgress;
-
-      callApi('savePodcastState', { type: 'progress', state: allData.podcastProgress }, true, true);
     }
 
     // 視窗關閉前嘗試同步
