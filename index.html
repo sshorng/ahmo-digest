@@ -4296,27 +4296,6 @@
         return;
       }
 
-      player.src = article.audioUrl;
-
-      // 優化跑馬燈：雙層結構實現無縫滾動
-      title.innerHTML = `<span class="marquee-span">${article.title}</span>`;
-      title.classList.remove('animating');
-      title.style.transform = 'none';
-
-      // 檢查是否溢出
-      setTimeout(() => {
-        const wrap = title.parentElement;
-        if (title.scrollWidth > wrap.offsetWidth + 10) {
-          title.innerHTML = `<span class="marquee-span">${article.title}</span><span class="marquee-span">${article.title}</span>`;
-          title.classList.add('animating');
-        }
-      }, 100);
-
-      subtitle.innerText = article.source;
-
-      // Update Download Link
-      const dlBtn = document.getElementById('player-download-btn');
-      if (dlBtn) dlBtn.onclick = () => handleDownload(article.audioUrl, article.title);
 
       // Restore progress
       const progress = allData.podcastProgress[article.id] || localStorage.getItem('podcast_progress_' + article.id);
@@ -4334,6 +4313,7 @@
         document.getElementById('player-progress').max = Math.floor(player.duration);
 
         if (!seekAttempted && progress) {
+          console.log("Restoring progress to:", progress);
           player.currentTime = Math.max(0, parseFloat(progress));
           seekAttempted = true;
         }
@@ -4401,6 +4381,30 @@
       progressInput.onchange = (e) => {
         player.currentTime = e.target.value;
       };
+
+      // [FIX] Move src assignment here, AFTER all event listeners are attached
+      player.src = article.audioUrl;
+
+      // 優化跑馬燈：雙層結構實現無縫滾動
+      title.innerHTML = `<span class="marquee-span">${article.title}</span>`;
+      title.classList.remove('animating');
+      title.style.transform = 'none';
+
+      // 檢查是否溢出
+      setTimeout(() => {
+        const wrap = title.parentElement;
+        if (title.scrollWidth > wrap.offsetWidth + 10) {
+          title.innerHTML = `<span class="marquee-span">${article.title}</span><span class="marquee-span">${article.title}</span>`;
+          title.classList.add('animating');
+        }
+      }, 100);
+
+      subtitle.innerText = article.source;
+
+      // Update Download Link
+      const dlBtn = document.getElementById('player-download-btn');
+      if (dlBtn) dlBtn.onclick = () => handleDownload(article.audioUrl, article.title);
+
 
       if (immediatePlay) {
         player.play().then(() => {
