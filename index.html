@@ -2598,15 +2598,29 @@
             }
           }
 
-          // [新增] 還原播放器狀態
+          // [新增] 還原播放器狀態 (正在播放ID, 速度, 顯示模式)
           if (res.playerState) {
             const ps = res.playerState;
             currentPlaybackSpeed = ps.speed || 1;
             playerDisplayMode = ps.mode || 'bar';
 
-            if (ps.currentId && !currentPlayingId) {
+            const player = document.getElementById('main-audio-player');
+            const isActuallyPlaying = player && !player.paused;
+
+            // [修正] 如果雲端 ID 不同於本地，且本地目前沒在放，則跟隨雲端
+            if (ps.currentId && ps.currentId !== currentPlayingId && !isActuallyPlaying) {
               const activeArt = allData.articles.find(it => it.id === ps.currentId);
-              if (activeArt) initPlayer(activeArt, false);
+              if (activeArt) {
+                console.log("Following cloud episode:", ps.currentId);
+                initPlayer(activeArt, false);
+              }
+            } else if (currentPlayingId) {
+              // 如果 ID 沒變，但雲端進度明顯領先，則跳轉 (Seek)
+              const cloudValue = parseFloat(allData.podcastProgress[currentPlayingId] || 0);
+              if (player && (cloudValue - player.currentTime) > 15) {
+                console.log("Follow cloud progress on load:", cloudValue);
+                player.currentTime = cloudValue;
+              }
             }
             syncSpeedUI();
           }
@@ -4593,6 +4607,7 @@
       if (player && !player.paused && player.currentTime > 0) {
         console.log("Heartbeat sync...");
         forceSyncProgress();
+        syncPlayerStateToCloud(); // [新增] 心跳同時同步播放 ID
       }
     }, 30000);
 
@@ -4620,28 +4635,43 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         console.log("App visible, refreshing cloud data...");
-        // 僅在背景更新資料，更全面的更新邏輯
-        callApi('getAllData', {}, false, true).then(res => {
+        // [修正] 改為 POST 請求以跳過快取
+        callApi('getAllData', {}, true, true).then(res => {
           if (res) {
-            // 1. 同步進度
+            // 1. 同步進度並跳轉 (Seek)
             if (res.podcastProgress) {
+              const player = document.getElementById('main-audio-player');
               for (let id in res.podcastProgress) {
                 const cloudVal = parseFloat(res.podcastProgress[id]);
                 const localVal = parseFloat(allData.podcastProgress[id] || 0);
 
                 if (id === currentPlayingId) {
-                  const player = document.getElementById('main-audio-player');
-                  // 只有當雲端進度明顯超出（例如 > 30秒）才同步，避免微小差值導致跳動
-                  if (player && (cloudVal - player.currentTime) > 30) {
+                  // 只有當雲端進度明顯超出才自動跳轉
+                  if (player && (cloudVal - player.currentTime) > 15) {
+                    console.log("Foreground sync: Seek to", cloudVal);
                     allData.podcastProgress[id] = cloudVal;
-                    // 可選：提示使用者是否跳轉
+                    player.currentTime = cloudVal;
                   }
                 } else {
                   allData.podcastProgress[id] = Math.max(cloudVal, localVal);
                 }
               }
             }
-            // 2. 同步佇列與其他狀態
+            // 2. 處理播放集數變更 (ID 同步)
+            if (res.playerState && res.playerState.currentId) {
+              const ps = res.playerState;
+              const player = document.getElementById('main-audio-player');
+              const isActuallyPlaying = player && !player.paused;
+              if (ps.currentId !== currentPlayingId && !isActuallyPlaying) {
+                const targetArt = allData.articles.find(a => a.id === ps.currentId);
+                if (targetArt) {
+                  console.log("Foreground sync: Switch to cloud episode", ps.currentId);
+                  initPlayer(targetArt, false);
+                }
+              }
+            }
+
+            // 3. 同步佇列與其他狀態
             if (res.podcastQueue) allData.queue = res.podcastQueue;
             if (res.readIds) allData.readIds = new Set(res.readIds);
             if (res.starredIds) allData.starredIds = new Set(res.starredIds);
@@ -4652,6 +4682,7 @@
               renderSidebar();
               renderQueue();
             });
+            saveStateToLocal();
             console.log("Cloud data synced and UI updated.");
           }
         });
