@@ -2282,7 +2282,7 @@
     /**
      * 封裝 API 呼叫 (fetch 跨網域 POST/GET)
      */
-    async function callApi(action, data = {}, isPost = true, silent = false, retryCount = 0) {
+    async function callApi(action, data = {}, isPost = true, silent = false, retryCount = 0, keepalive = false) {
       const url = getGasUrl();
       if (!url) {
         if (!silent) showCustomModal("連線設定請求", "尚未設定 GAS Web App URL。請點擊側邊欄的 ⚙️ 按鈕進行設定，或是使用分享連結。");
@@ -2296,13 +2296,15 @@
             method: 'POST',
             mode: 'cors', // 處理跨網域
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action, ...data })
+            body: JSON.stringify({ action, ...data }),
+            keepalive: keepalive // [新增] 支援背景傳輸
           });
         } else {
           const queryParams = new URLSearchParams({ action, ...data });
           response = await fetch(`${url}?${queryParams.toString()}`, {
             method: 'GET',
-            mode: 'cors'
+            mode: 'cors',
+            keepalive: keepalive
           });
         }
 
@@ -4355,6 +4357,7 @@
 
       player.onpause = () => {
         forceSyncProgress();
+        syncPlayerStateToCloud(true); // [新增] 暫停時立即同步播放狀態
         updatePlayerUI(false);
         renderQueue();
       };
@@ -4417,7 +4420,7 @@
         if (playerDisplayMode === 'ball' && immediatePlay) togglePlayerDisplay('bar');
         else applyPlayerDisplay();
         renderQueue();
-        syncPlayerStateToCloud();
+        syncPlayerStateToCloud(true); // [新增] 開始播放時立即同步狀態
       }, 0);
     }
 
@@ -4584,12 +4587,16 @@
         const delta = {};
         delta[currentPlayingId] = allData.podcastProgress[currentPlayingId];
         console.log("Syncing delta progress:", delta);
-        callApi('savePodcastState', { type: 'progress', state: delta }, true, true);
+        // 使用 keepalive 確保分頁關閉時仍能完成傳送
+        callApi('savePodcastState', { type: 'progress', state: delta }, true, true, 0, true);
       }
     }
 
     // 視窗關閉前嘗試同步
-    window.addEventListener('beforeunload', () => forceSyncProgress());
+    window.addEventListener('beforeunload', () => {
+      forceSyncProgress();
+      syncPlayerStateToCloud(true);
+    });
 
     // [新增] 頁面可見性切換時自動從雲端更新進度 (解決手機/電腦同步延遲)
     document.addEventListener('visibilitychange', () => {
@@ -4621,6 +4628,7 @@
         // [新增] 當進入背景 (例如手機切換 App 或關閉分頁) 時強制同步一次
         console.log("App hidden, forcing sync...");
         forceSyncProgress();
+        syncPlayerStateToCloud(true); // 同時強制同步目前播放的 ID
       }
     });
 
@@ -4629,16 +4637,24 @@
     }
 
     let syncStateTimeout = null;
-    function syncPlayerStateToCloud() {
+    function syncPlayerStateToCloud(immediate = false) {
       if (syncStateTimeout) clearTimeout(syncStateTimeout);
-      syncStateTimeout = setTimeout(() => {
+
+      const doSync = () => {
         const state = {
           currentId: currentPlayingId,
           speed: currentPlaybackSpeed,
           mode: playerDisplayMode
         };
-        callApi('savePodcastState', { type: 'playerState', state: state }, true, true);
-      }, 5000);
+        console.log("Syncing player state to cloud:", state);
+        callApi('savePodcastState', { type: 'playerState', state: state }, true, true, 0, true);
+      };
+
+      if (immediate) {
+        doSync();
+      } else {
+        syncStateTimeout = setTimeout(doSync, 3000); // 縮短為 3 秒
+      }
     }
 
     /* --- Queue System --- */
@@ -4711,7 +4727,10 @@
       // 播放下一個位置的項目 (如果有的話)
       if (allData.queue.length > 0) {
         const nextA = allData.articles.find(it => it.id === allData.queue[0]);
-        if (nextA) initPlayer(nextA, true);
+        if (nextA) {
+          initPlayer(nextA, true);
+          syncPlayerStateToCloud(true); // [新增] 切換下一首時立即同步狀態
+        }
         else { // 如果找不到文章，則跳過此 ID 繼續下一個
           allData.queue.shift();
           playNextInQueue();
@@ -4721,7 +4740,7 @@
         currentPlayingId = null;
         applyPlayerDisplay();
         renderQueue();
-        syncPlayerStateToCloud();
+        syncPlayerStateToCloud(true); // [新增] 佇列結束，立即同步空狀態
       }
     }
 
