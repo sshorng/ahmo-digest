@@ -4602,33 +4602,45 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         console.log("App visible, refreshing cloud data...");
-        // 僅在背景更新資料，不要打斷目前的播放或操作
+        // 僅在背景更新資料，更全面的更新邏輯
         callApi('getAllData', {}, false, true).then(res => {
-          if (res && res.podcastProgress) {
-            // 智慧合併進度：保留各篇文章中最晚的進度
-            for (let id in res.podcastProgress) {
-              const cloudVal = parseFloat(res.podcastProgress[id]);
-              const localVal = parseFloat(allData.podcastProgress[id] || 0);
-              // 如果目前正在播放這首，則謹慎更新 (除非雲端明顯領先)
-              if (id === currentPlayingId) {
-                const player = document.getElementById('main-audio-player');
-                if (player && Math.abs(cloudVal - player.currentTime) > 10) {
-                  // 暫不自動跳轉，避免嚇到使用者，但更新紀錄
-                  allData.podcastProgress[id] = Math.max(cloudVal, player.currentTime);
+          if (res) {
+            // 1. 同步進度
+            if (res.podcastProgress) {
+              for (let id in res.podcastProgress) {
+                const cloudVal = parseFloat(res.podcastProgress[id]);
+                const localVal = parseFloat(allData.podcastProgress[id] || 0);
+
+                if (id === currentPlayingId) {
+                  const player = document.getElementById('main-audio-player');
+                  // 只有當雲端進度明顯超出（例如 > 30秒）才同步，避免微小差值導致跳動
+                  if (player && (cloudVal - player.currentTime) > 30) {
+                    allData.podcastProgress[id] = cloudVal;
+                    // 可選：提示使用者是否跳轉
+                  }
+                } else {
+                  allData.podcastProgress[id] = Math.max(cloudVal, localVal);
                 }
-              } else {
-                allData.podcastProgress[id] = Math.max(cloudVal, localVal);
               }
             }
-            // 同時更新佇列狀態
+            // 2. 同步佇列與其他狀態
             if (res.podcastQueue) allData.queue = res.podcastQueue;
+            if (res.readIds) allData.readIds = new Set(res.readIds);
+            if (res.starredIds) allData.starredIds = new Set(res.starredIds);
+
+            // 3. 靜態更新 UI，不干擾播放
+            requestAnimationFrame(() => {
+              renderArticles();
+              renderSidebar();
+              renderQueue();
+            });
+            console.log("Cloud data synced and UI updated.");
           }
         });
       } else if (document.visibilityState === 'hidden') {
-        // [新增] 當進入背景 (例如手機切換 App 或關閉分頁) 時強制同步一次
         console.log("App hidden, forcing sync...");
         forceSyncProgress();
-        syncPlayerStateToCloud(true); // 同時強制同步目前播放的 ID
+        syncPlayerStateToCloud(true);
       }
     });
 
