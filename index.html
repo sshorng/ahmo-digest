@@ -2389,7 +2389,10 @@
     let playerDisplayMode = localStorage.getItem('podcast_display_mode') || 'bar'; // 'bar', 'ball'
     let currentPlayingId = null;
 
-    // [新增] 追蹤中斷的同步任務 (強制轉為 Number 避免型別不匹配)
+    // [新增] 追蹤雲端資料是否已完成初次加載 (防止本地過期快取覆寫雲端新進度)
+    let isInitialDataLoaded = false;
+
+    // [新增] 追蹤中斷的同步任務
     let pendingSyncSources = new Set();
     try {
       const saved = JSON.parse(localStorage.getItem('rss_pending_sync') || '[]');
@@ -2574,7 +2577,7 @@
 
       try {
         const hasCache = allData.articles && allData.articles.length > 0;
-        const res = await callApi('getAllData', {}, false, hasCache ? 'toast' : false);
+        const res = await callApi('getAllData', {}, true, hasCache ? 'toast' : false);
         if (res) {
           allData = res;
           allData.articles = res.articles || [];
@@ -2582,24 +2585,33 @@
           allData.starredIds = new Set(res.starredIds || []);
           allData.subscriptions = res.subscriptions || [];
           allData.settings = res.settings || {};
-          allData.queue = res.podcastQueue || []; // 確保始終為陣列
+          allData.queue = res.podcastQueue || [];
           allData.podcastProgress = res.podcastProgress || {};
 
-          // [新增] 還原播放器狀態 (正在播放ID, 速度, 顯示模式)
+          // [修正] 如果目前正在播放，檢查雲端進度是否領先，若是則更新
+          if (currentPlayingId) {
+            const cloudVal = parseFloat(allData.podcastProgress[currentPlayingId] || 0);
+            const player = document.getElementById('main-audio-player');
+            if (player && (cloudVal - player.currentTime) > 10) {
+              console.log("Refresh: Jump to cloud progress", cloudVal);
+              player.currentTime = cloudVal;
+            }
+          }
+
+          // [新增] 還原播放器狀態
           if (res.playerState) {
             const ps = res.playerState;
             currentPlaybackSpeed = ps.speed || 1;
             playerDisplayMode = ps.mode || 'bar';
 
-            // 如果雲端有紀錄正在播放，且本地目前沒在放，則嘗試載入
             if (ps.currentId && !currentPlayingId) {
               const activeArt = allData.articles.find(it => it.id === ps.currentId);
-              if (activeArt) {
-                initPlayer(activeArt, false); // 不自動播放，僅載入狀態
-              }
+              if (activeArt) initPlayer(activeArt, false);
             }
-            syncSpeedUI(); // 同步雲端速度
+            syncSpeedUI();
           }
+
+          isInitialDataLoaded = true; // [關鍵] 此時才允許上傳進度
 
           if (res.spreadsheetUrl) {
             allData.spreadsheetUrl = res.spreadsheetUrl;
@@ -2622,6 +2634,7 @@
             renderArticles();
             renderManagerList();
             updateCategoryDropdown();
+            renderQueue(); // 確保佇列也更新
           });
         }
       } catch (err) {
@@ -4345,7 +4358,11 @@
           const savePoint = Math.max(0, currentTime - 5);
           allData.podcastProgress[article.id] = savePoint;
           localStorage.setItem('podcast_progress_' + article.id, savePoint);
-          debounceSyncProgress();
+
+          // [修正] 只有當雲端資料已加載完成，才允許上傳本地進度，防止洗掉雲端新進度
+          if (isInitialDataLoaded) {
+            debounceSyncProgress();
+          }
         }
       };
 
@@ -4589,6 +4606,7 @@
         console.log("Syncing delta progress:", delta);
         // 使用 keepalive 確保分頁關閉時仍能完成傳送
         callApi('savePodcastState', { type: 'progress', state: delta }, true, true, 0, true);
+        saveStateToLocal(); // 同步到本地全域快取
       }
     }
 
