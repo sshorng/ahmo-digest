@@ -4451,7 +4451,12 @@
         if (playerDisplayMode === 'ball' && immediatePlay) togglePlayerDisplay('bar');
         else applyPlayerDisplay();
         renderQueue();
-        syncPlayerStateToCloud(true); // [新增] 開始播放時立即同步狀態
+
+        // [修正] 只有當「正在播放」(即時點擊) 或 「已載入雲端資料」後，才同步回雲端
+        // 防止手機剛開啟時，本地舊快取反向覆蓋掉雲端正放的新集數
+        if (immediatePlay || isInitialDataLoaded) {
+          syncPlayerStateToCloud(true);
+        }
       }, 0);
     }
 
@@ -4705,7 +4710,8 @@
         const state = {
           currentId: currentPlayingId,
           speed: currentPlaybackSpeed,
-          mode: playerDisplayMode
+          mode: playerDisplayMode,
+          lastUpdated: Date.now() // [新增] 時間戳記，解決多裝置衝突
         };
         console.log("Syncing player state to cloud:", state);
         callApi('savePodcastState', { type: 'playerState', state: state }, true, true, 0, true);
