@@ -2259,7 +2259,11 @@
     /**
      * 獲取目前有效的 GAS URL (優先權: 網址參數 > LocalStorage > 硬編碼)
      */
+    // [效能優化] 快取 GAS URL 避免每次 API 呼叫重新解析
+    let _cachedGasUrl = undefined;
     function getGasUrl() {
+      if (_cachedGasUrl !== undefined) return _cachedGasUrl;
+
       // 1. 檢查網址參數 ?config=BASE64_URL
       const urlParams = new URLSearchParams(window.location.search);
       const configParam = urlParams.get('config');
@@ -2268,20 +2272,24 @@
           const decodedUrl = atob(configParam);
           if (decodedUrl.startsWith('http')) {
             localStorage.setItem('gas_web_app_url', decodedUrl);
-            // 移除參數避免重複讀取
             window.history.replaceState({}, document.title, window.location.pathname);
-            return decodedUrl;
+            _cachedGasUrl = decodedUrl;
+            return _cachedGasUrl;
           }
         } catch (e) { console.error("Base64 decode failed", e); }
       }
 
       // 2. 本地儲存
       const storedUrl = localStorage.getItem('gas_web_app_url');
-      if (storedUrl) return storedUrl;
+      if (storedUrl) { _cachedGasUrl = storedUrl; return _cachedGasUrl; }
 
       // 3. 硬編碼預設值
-      return DEFAULT_GAS_URL;
+      _cachedGasUrl = DEFAULT_GAS_URL;
+      return _cachedGasUrl;
     }
+
+    /** 當使用者在設定中改變 GAS URL 時呼叫，清除快取 */
+    function invalidateGasUrlCache() { _cachedGasUrl = undefined; }
 
     /**
      * 封裝 API 呼叫 (fetch 跨網域 POST/GET)
@@ -3974,10 +3982,15 @@
       `;
     }
 
+    // [安全] 檢查 URL 協議是否安全
+    function isSafeUrl(url) {
+      if (!url || typeof url !== 'string') return false;
+      return /^https?:\/\//i.test(url.trim());
+    }
+
     function getLinkHtml(a, isListMode) {
       if (!a) return '';
-      // 確保連結始終存在，如果沒有則使用 # (避免 icon 不見)
-      const href = a.link || '#';
+      const href = isSafeUrl(a.link) ? escapeHtml(a.link) : '#';
       return `
         <a href="${href}" target="_blank" onclick="event.stopPropagation(); markAsReadInline('${a.id}')" 
            class="text-slate-500 hover:text-blue-600 transition-colors p-1 flex-shrink-0" 
@@ -4044,14 +4057,15 @@
           card.className = `article-card bg-white p-5 rounded-xl border border-slate-200 shadow-sm transition-all cursor-pointer flex flex-col h-full ${isRead ? 'is-read' : ''}`;
           card.onclick = () => openFullContentModal(a.id, card);
           const dateStr = formatRelativeTime(a.date);
-          const plainDesc = (a.description || "").replace(/<[^>]+>/g, '').substring(0, 150);
-          const actionButtons = ""; // Not used anymore
+          const safeTitle = escapeHtml(a.title);
+          const safeSource = escapeHtml(a.source);
+          const plainDesc = escapeHtml((a.description || "").substring(0, 300).replace(/<[^>]+>/g, '').substring(0, 150));
 
           card.innerHTML = `
             <div class="flex justify-between items-center mb-2 flex-nowrap">
               <div class="flex items-center min-w-0 flex-1 mr-2 space-x-2">
-                <span onclick="event.stopPropagation(); setSourceFilter('${a.source}')" 
-                      class="text-[9px] font-bold text-blue-500 uppercase tracking-wider bg-blue-50 px-1.5 py-0.5 rounded truncate cursor-pointer hover:bg-blue-100 transition-colors leading-none">${a.source}</span>
+                <span data-source="${safeSource}" onclick="event.stopPropagation(); setSourceFilter(this.dataset.source)" 
+                      class="text-[9px] font-bold text-blue-500 uppercase tracking-wider bg-blue-50 px-1.5 py-0.5 rounded truncate cursor-pointer hover:bg-blue-100 transition-colors leading-none">${safeSource}</span>
                 <span class="text-[10px] font-medium text-slate-400 whitespace-nowrap">${dateStr}</span>
               </div>
               <div class="flex items-center space-x-2 flex-shrink-0 flex-nowrap">
@@ -4062,7 +4076,7 @@
                 </div>
               </div>
             </div>
-            <h3 class="text-base font-bold text-slate-800 mb-1 line-clamp-2 hover:text-blue-600 transition-colors leading-snug" title="${a.title.replace(/"/g, '&quot;')}">${a.title}</h3>
+            <h3 class="text-base font-bold text-slate-800 mb-1 line-clamp-2 hover:text-blue-600 transition-colors leading-snug" title="${safeTitle}">${safeTitle}</h3>
             <p class="text-[13px] text-slate-500 line-clamp-3 mb-2 text-justify leading-relaxed opacity-90">${plainDesc}...</p>
             <div class="flex justify-end items-center mt-auto border-t border-slate-50 pt-1.5 w-full space-x-1.5">
                 ${getAiButtonHtml(a)}
@@ -4097,15 +4111,15 @@
                   <div class="flex-1 min-w-0">
                      <!-- Row 1: Title & Date -->
                      <div class="flex justify-between items-start mb-1 gap-4">
-                        <h3 class="text-[14px] font-bold text-slate-800 leading-tight line-clamp-2 transition-colors hover:text-blue-600" title="${a.title.replace(/"/g, '&quot;')}">${a.title}</h3>
+                        <h3 class="text-[14px] font-bold text-slate-800 leading-tight line-clamp-2 transition-colors hover:text-blue-600" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</h3>
                         <span class="text-[10px] font-medium text-slate-400 whitespace-nowrap opacity-70">${dateStr}</span>
                      </div>
                      
                      <!-- Row 2: Metadata & Actions -->
                      <div class="flex items-center justify-between mt-1 flex-nowrap">
                         <!-- Left: Source Badge -->
-                        <span onclick="event.stopPropagation(); setSourceFilter('${a.source}')" 
-                              class="text-[9px] font-bold text-blue-500 uppercase tracking-wider bg-blue-50 px-1.5 py-0.5 rounded truncate max-w-[120px] cursor-pointer hover:bg-blue-100 transition-colors leading-none">${a.source}</span>
+                        <span data-source="${escapeHtml(a.source)}" onclick="event.stopPropagation(); setSourceFilter(this.dataset.source)" 
+                              class="text-[9px] font-bold text-blue-500 uppercase tracking-wider bg-blue-50 px-1.5 py-0.5 rounded truncate max-w-[120px] cursor-pointer hover:bg-blue-100 transition-colors leading-none">${escapeHtml(a.source)}</span>
                         
                         <!-- Right: Actions Group -->
                         <div class="flex items-center space-x-2.5 flex-nowrap">
@@ -4983,8 +4997,8 @@
              <span class="text-[10px] font-bold">${idx + 1}</span>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="text-[11px] font-bold line-clamp-1" title="${a.title}">${a.title}</div>
-            <div class="text-[9px] text-slate-400" title="${a.source}">${a.source}</div>
+            <div class="text-[11px] font-bold line-clamp-1" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</div>
+            <div class="text-[9px] text-slate-400" title="${escapeHtml(a.source)}">${escapeHtml(a.source)}</div>
           </div>
           <button onclick="event.stopPropagation(); removeFromQueueByElement('${a.id}')" class="text-slate-300 hover:text-red-500 p-1">
             <i class="fa-solid fa-xmark text-xs"></i>
@@ -5045,6 +5059,7 @@
       const url = document.getElementById('settings-gas-url').value.trim();
       const apiKey = document.getElementById('settings-api-key').value.trim();
 
+      invalidateGasUrlCache(); // 清除快取讓下次 API 呼叫使用新值
       if (url) localStorage.setItem('gas_web_app_url', url);
       else localStorage.removeItem('gas_web_app_url');
 
@@ -5069,6 +5084,7 @@
 
     async function handleClearSettings() {
       if (await showConfirmModal('清除設定', '確定要清除所有連線設定嗎？這將會刪除儲存的 GAS URL 與 API Key。')) {
+        invalidateGasUrlCache();
         localStorage.removeItem('gas_web_app_url');
         localStorage.removeItem('gemini_api_key');
         showToast("設定已清除", "success");
