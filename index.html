@@ -88,7 +88,11 @@
     .list-view-item {
       content-visibility: auto;
       contain-intrinsic-size: 1px 250px;
-      /* 提升渲染效率 */
+    }
+
+    /* [優化] 僅在 hover 時啟用 will-change，避免大量卡片預佔 GPU 合成層 */
+    .article-card:hover,
+    .list-view-item:hover {
       will-change: transform, opacity;
     }
 
@@ -2372,6 +2376,90 @@
       };
     }
 
+    /**
+     * [新增] 自訂 Confirm 對話框 (取代原生 confirm)
+     * 回傳 Promise<boolean>，用法：if (await showConfirmModal('標題', '訊息')) { ... }
+     */
+    function showConfirmModal(title, message) {
+      return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in';
+
+        const content = document.createElement('div');
+        content.className = 'bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-all animate-pop-in';
+
+        content.innerHTML = `
+          <div class="p-6 text-center">
+            <div class="w-12 h-12 text-amber-500 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800 mb-2">${title}</h3>
+            <p class="text-sm text-slate-500 whitespace-pre-wrap">${message}</p>
+          </div>
+          <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-center gap-3">
+            <button id="confirm-cancel-btn" class="flex-1 px-6 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all">取消</button>
+            <button id="confirm-ok-btn" class="flex-1 px-6 py-2.5 bg-red-500 text-white rounded-xl font-bold text-sm shadow-md hover:bg-red-600 transition-all">確定</button>
+          </div>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        const close = (result) => {
+          modal.classList.add('opacity-0');
+          setTimeout(() => modal.remove(), 200);
+          resolve(result);
+        };
+
+        content.querySelector('#confirm-cancel-btn').onclick = () => close(false);
+        content.querySelector('#confirm-ok-btn').onclick = () => close(true);
+        modal.addEventListener('click', (e) => { if (e.target === modal) close(false); });
+      });
+    }
+
+    /**
+     * [新增] 自訂 Prompt 對話框 (取代原生 prompt)
+     * 回傳 Promise<string|null>，用法：const val = await showPromptModal('標題', '提示', '預設值');
+     */
+    function showPromptModal(title, placeholder = '', defaultValue = '') {
+      return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in';
+
+        const content = document.createElement('div');
+        content.className = 'bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-all animate-pop-in';
+
+        content.innerHTML = `
+          <div class="p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">${title}</h3>
+            <input id="prompt-input" type="text" value="${defaultValue.replace(/"/g, '&quot;')}" placeholder="${placeholder.replace(/"/g, '&quot;')}"
+              class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all">
+          </div>
+          <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-center gap-3">
+            <button id="prompt-cancel-btn" class="flex-1 px-6 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all">取消</button>
+            <button id="prompt-ok-btn" class="flex-1 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 transition-all">確定</button>
+          </div>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        const inputEl = content.querySelector('#prompt-input');
+        setTimeout(() => inputEl.focus(), 100);
+
+        const close = (result) => {
+          modal.classList.add('opacity-0');
+          setTimeout(() => modal.remove(), 200);
+          resolve(result);
+        };
+
+        content.querySelector('#prompt-cancel-btn').onclick = () => close(null);
+        content.querySelector('#prompt-ok-btn').onclick = () => close(inputEl.value.trim());
+        inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') close(inputEl.value.trim()); });
+        modal.addEventListener('click', (e) => { if (e.target === modal) close(null); });
+      });
+    }
+
     let showUnreadOnly = true;
     let currentSourceFilter = null;
     let currentCategoryFilter = null;
@@ -2428,11 +2516,18 @@
       // 3. 初始載入
       refreshAll();
 
-      // 監聽內容區域的捲動事件以實現無限載入
+      // 監聽內容區域的捲動事件以實現無限載入 (加入 rAF 節流避免過度觸發)
       const contentArea = document.getElementById('content-area');
+      let scrollTicking = false;
       contentArea.addEventListener('scroll', () => {
-        if (contentArea.scrollTop + contentArea.clientHeight >= contentArea.scrollHeight - 500) {
-          loadMoreArticles();
+        if (!scrollTicking) {
+          scrollTicking = true;
+          requestAnimationFrame(() => {
+            if (contentArea.scrollTop + contentArea.clientHeight >= contentArea.scrollHeight - 500) {
+              loadMoreArticles();
+            }
+            scrollTicking = false;
+          });
         }
       });
 
@@ -2568,8 +2663,8 @@
       const emptyEl = document.getElementById('empty-state');
 
       [icon, mobileIcon].forEach(el => el?.classList.add('fa-spin'));
-      const hasCache = allData.articles && allData.articles.length > 0;
-      if (!hasCache) {
+      const hasLocalCache = allData.articles && allData.articles.length > 0;
+      if (!hasLocalCache) {
         grid.classList.add('hidden');
         emptyEl.classList.add('hidden');
         loader.classList.remove('hidden');
@@ -2697,7 +2792,7 @@
     }
 
     async function handleResetCache() {
-      if (!confirm("確定要重置快取嗎？這將清空所有的文章紀錄並重新抓取（可能需要較長時間）。")) return;
+      if (!await showConfirmModal("重置快取", "確定要重置快取嗎？這將清空所有的文章紀錄並重新抓取（可能需要較長時間）。")) return;
 
       const icon = document.getElementById('cache-icon');
       const statusArea = document.getElementById('sync-status-area');
@@ -2874,7 +2969,7 @@
     }
 
     async function handleDeleteSub(index) {
-      if (!confirm("確定要刪除這個訂閱嗎？")) return;
+      if (!await showConfirmModal("刪除訂閱", "確定要刪除這個訂閱嗎？")) return;
 
       try {
         const res = await callApi('deleteSubscription', { rowIndex: index });
@@ -2942,43 +3037,7 @@
       }
     }
 
-    function updateCategoryDropdown() {
-      const cats = [...new Set(allData.subscriptions.map(s => s.category || '未分類'))];
-      if (!cats.includes('未分類')) cats.push('未分類');
-      cats.sort();
-
-      const optionsHtml = cats.map(c => `<option value="${c}">${c}</option>`).join('') +
-        `<option value="__NEW__" class="font-bold text-blue-600">+ 新增分類...</option>`;
-
-      const selects = ['sub-category', 'edit-source-cat', 'batch-move-cat'];
-      selects.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-          const currentVal = el.value;
-          el.innerHTML = optionsHtml;
-          if (currentVal && cats.includes(currentVal)) el.value = currentVal;
-        }
-      });
-    }
-
-    function checkNewCategory(select, wrapId) {
-      const wrap = document.getElementById(wrapId);
-      if (select.value === '__NEW__') {
-        wrap.classList.remove('hidden');
-        wrap.querySelector('input').focus();
-      } else {
-        wrap.classList.add('hidden');
-      }
-    }
-
-    function getCategoryValue(baseId) {
-      const select = document.getElementById(baseId);
-      const customInput = document.getElementById(baseId + '-custom');
-      if (select && select.value === '__NEW__') {
-        return (customInput ? customInput.value.trim() : '') || '未分類';
-      }
-      return (select ? select.value : '未分類');
-    }
+    // [已移至下方統一定義] updateCategoryDropdown, checkNewCategory, getCategoryValue
 
     function renderSidebar() {
       const list = document.getElementById('category-list');
@@ -2991,6 +3050,9 @@
       let totalUnread = 0;
       let starredUnread = 0;
 
+      // [效能優化] 建立 name → subscription 查詢表，將 O(n*m) 降為 O(n)
+      const subMap = new Map(allData.subscriptions.map(s => [s.name, s]));
+
       allData.articles.forEach(a => {
         if (!allData.readIds.has(a.id)) {
           totalUnread++;
@@ -2999,7 +3061,7 @@
           }
 
           counts[a.source] = (counts[a.source] || 0) + 1;
-          const sub = allData.subscriptions.find(s => s.name === a.source);
+          const sub = subMap.get(a.source);
           if (sub) {
             const cat = sub.category || '未分類';
             catCounts[cat] = (catCounts[cat] || 0) + 1;
@@ -3165,15 +3227,15 @@
       setTimeout(() => toggleSidebar(false), 50);
     }
 
-    function handleRenameCategoryDirect(catName) {
-      const newName = prompt('請輸入新的分類名稱', catName);
+    async function handleRenameCategoryDirect(catName) {
+      const newName = await showPromptModal('請輸入新的分類名稱', '分類名稱', catName);
       if (newName && newName !== catName) {
         handleRenameCat(catName, newName); // 復用現有邏輯
       }
     }
 
     async function handleDeleteCategoryDirect(catName) {
-      if (confirm(`確定要刪除「${catName}」分類下的所有訂閱嗎？此操作無法復原。`)) {
+      if (await showConfirmModal('刪除分類', `確定要刪除「${catName}」分類下的所有訂閱嗎？此操作無法復原。`)) {
         try {
           const res = await callApi('deleteCategorySubscriptions', { category: catName });
           if (res.success) {
@@ -3406,7 +3468,7 @@
     }
 
     async function handleBatchDelete() {
-      if (!confirm(`確定要刪除這 ${selectedSubIndices.size} 個訂閱來源嗎？`)) return;
+      if (!await showConfirmModal('批次刪除', `確定要刪除這 ${selectedSubIndices.size} 個訂閱來源嗎？`)) return;
 
       const indices = Array.from(selectedSubIndices);
       selectedSubIndices.clear();
@@ -3489,12 +3551,12 @@
       }
     }
 
-    function handleExportClick() {
+    async function handleExportClick() {
       const selections = Array.from(selectedSubIndices);
 
       if (selections.length > 0) {
         // 有勾選，詢問是否僅匯出勾選項
-        if (confirm(`已勾選 ${selections.length} 個來源。是否僅匯出這些項目？\n(點擊「取消」則匯出全部)`)) {
+        if (await showConfirmModal('匯出確認', `已勾選 ${selections.length} 個來源。是否僅匯出這些項目？\n(點擊「取消」則匯出全部)`)) {
           executeExport({ indices: selections });
           return;
         }
@@ -3525,7 +3587,7 @@
       }
     }
 
-    function handleImportFile(input) {
+    async function handleImportFile(input) {
       const file = input.files[0];
       if (!file) return;
 
@@ -3533,7 +3595,7 @@
       let targetCat = targetCatEl.value;
 
       if (targetCat === 'NEW') {
-        const newCat = prompt("請輸入匯入目標的新分類名稱：");
+        const newCat = await showPromptModal('新增分類', '請輸入匯入目標的新分類名稱');
         if (!newCat) {
           input.value = "";
           return;
@@ -3546,7 +3608,7 @@
         const xml = e.target.result;
         const msg = targetCat ? `將所有項目匯入到資料夾「${targetCat}」嗎？` : `確認匯入此 OPML 檔案嗎？系統會自動依原有分類匯入。`;
 
-        if (confirm(msg)) {
+        if (await showConfirmModal('匯入確認', msg)) {
           showToast("正在匯入 OPML，請稍候...");
           try {
             const res = await callApi('importSubscriptions', { xmlString: xml, targetCategory: targetCat });
@@ -3760,8 +3822,8 @@
       });
     }
 
-    async function handleRenameCat(oldCat) {
-      const newName = prompt(`將分類「${oldCat}」重新命名為：`, oldCat);
+    async function handleRenameCat(oldCat, presetNewName) {
+      const newName = presetNewName || await showPromptModal(`重新命名分類`, `將分類「${oldCat}」重新命名為：`, oldCat);
       if (!newName || newName === oldCat) return;
       showToast("正在重新命名...");
       try {
@@ -3774,7 +3836,7 @@
     }
 
     async function handleDeleteCat(cat) {
-      if (!confirm(`確定要刪除分類「${cat}」及其包含的所有訂閱嗎？此動作無法復原。`)) return;
+      if (!await showConfirmModal('刪除分類', `確定要刪除分類「${cat}」及其包含的所有訂閱嗎？此動作無法復原。`)) return;
       showToast("正在刪除分類...");
       try {
         const res = await callApi('deleteCategorySubscriptions', { category: cat });
@@ -4136,7 +4198,7 @@
       markAsReadInline(id, el);
     }
 
-    function markPageAsRead() {
+    async function markPageAsRead() {
       // 找出當前過濾條件下的所有結果 (不論是否已載入到畫面上)
       const filtered = getFilteredArticles();
       const unreadArticles = filtered.filter(a => !allData.readIds.has(a.id));
@@ -4146,7 +4208,7 @@
         return;
       }
 
-      if (!confirm(`確定要將目前篩選條件下的 ${unreadArticles.length} 則未讀文章全部標記為已讀嗎？`)) return;
+      if (!await showConfirmModal('全部已讀', `確定要將目前篩選條件下的 ${unreadArticles.length} 則未讀文章全部標記為已讀嗎？`)) return;
 
       const idsToMark = unreadArticles.map(a => a.id);
 
@@ -4162,7 +4224,7 @@
       });
     }
 
-    function setTimeFilter(days, el) { /* 移除 */ }
+    // setTimeFilter 已移除
 
 
     function toggleUnreadFilter() {
@@ -4353,29 +4415,33 @@
         player.playbackRate = currentPlaybackSpeed;
       };
 
+      // [效能優化] 使用 rAF 節流 ontimeupdate，減少每秒 DOM 寫入次數
+      let timeUpdateTicking = false;
       player.ontimeupdate = () => {
         if (player.currentTime > 0 && !player.paused) {
-          const currentTime = player.currentTime;
-          const duration = player.duration;
-
-          // Update UI
-          const formattedTime = formatTime(currentTime);
-          document.getElementById('player-current-time').innerText = formattedTime;
-          document.getElementById('player-mobile-current-time').innerText = formattedTime;
-          const progressInput = document.getElementById('player-progress');
-          progressInput.value = Math.floor(currentTime);
-
-          const percent = (currentTime / duration) * 100;
-          document.getElementById('player-progress-fill').style.width = percent + '%';
-
-          // Sync logic
-          const savePoint = Math.max(0, currentTime - 5);
+          // 進度儲存（每次都做，不受 rAF 限制）
+          const savePoint = Math.max(0, player.currentTime - 5);
           allData.podcastProgress[article.id] = savePoint;
           localStorage.setItem('podcast_progress_' + article.id, savePoint);
 
-          // [修正] 只有當雲端資料已加載完成，才允許上傳本地進度，防止洗掉雲端新進度
+          // [修正] 只有當雲端資料已加載完成，才允許上傳本地進度
           if (isInitialDataLoaded) {
             debounceSyncProgress();
+          }
+
+          // UI 更新（用 rAF 節流，避免每秒 15+ 次 DOM 操作）
+          if (!timeUpdateTicking) {
+            timeUpdateTicking = true;
+            requestAnimationFrame(() => {
+              const currentTime = player.currentTime;
+              const duration = player.duration;
+              const formattedTime = formatTime(currentTime);
+              document.getElementById('player-current-time').innerText = formattedTime;
+              document.getElementById('player-mobile-current-time').innerText = formattedTime;
+              document.getElementById('player-progress').value = Math.floor(currentTime);
+              document.getElementById('player-progress-fill').style.width = ((currentTime / duration) * 100) + '%';
+              timeUpdateTicking = false;
+            });
           }
         }
       };
@@ -4953,85 +5019,7 @@
       return date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' });
     }
 
-    /**
-     * 開啟設定面板
-     */
-    /**
-         * 開啟設定面板 (⚙️)
-         * [修正] 優先讀取試算表回傳的設定 (allData.settings)，若無才讀取本地暫存
-         */
-    function showSettings() {
-      const modal = document.createElement('div');
-      modal.className = 'fixed inset-0 z-[400] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in';
-      modal.id = 'settings-modal';
-
-      const currentUrl = localStorage.getItem('gas_web_app_url') || DEFAULT_GAS_URL;
-
-      // [關鍵修正] 這裡增加了 allData.settings.GEMINI_API_KEY 的判斷
-      // 確保優先顯示從資料表同步下來的金鑰
-      const currentApiKey = (allData.settings && allData.settings.GEMINI_API_KEY)
-        ? allData.settings.GEMINI_API_KEY
-        : (localStorage.getItem('gemini_api_key') || "");
-
-      modal.innerHTML = `
-        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transform animate-pop-in">
-          <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-            <h3 class="text-xl font-bold text-slate-800">系統連線設定</h3>
-            <button onclick="this.closest('#settings-modal').remove()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-          </div>
-          <div class="p-8 overflow-y-auto space-y-6">
-            <div>
-              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">GAS Web App URL</label>
-              <div class="relative">
-                <i class="fa-solid fa-link absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                <input id="settings-gas-url" type="password" value="${currentUrl}" placeholder="https://script.google.com/..."
-                  class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all">
-              </div>
-              <p class="text-[10px] text-slate-400 mt-2 ml-1">連結至您的 Google Apps Script 後端伺服器。</p>
-            </div>
-
-            <div>
-              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Gemini API Key (支援多金鑰輪替)</label>
-              <div class="relative">
-                <i class="fa-solid fa-key absolute left-4 top-4 text-slate-300"></i>
-                <textarea id="settings-api-key" placeholder="貼上您的 Gemini API Key。支援多金鑰，請換行(Enter)輸入，一個失效會自動嘗試下一個。" rows="3"
-                  class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-mono outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all">${currentApiKey}</textarea>
-              </div>
-              <p class="text-[10px] text-slate-400 mt-2 ml-1">建議每行貼上一組金鑰。系統會自動儲存至試算表的「系統設定」分頁以達成跨裝置同步。</p>
-            </div>
-
-            <div class="bg-blue-50/50 rounded-2xl p-5 border border-blue-100/50">
-              <h4 class="text-xs font-bold text-blue-600 mb-3 flex items-center"><i class="fa-solid fa-share-nodes mr-2"></i> 分享目前設定</h4>
-              <button onclick="handleGenerateShareLink()" id="share-btn" class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 mb-3">
-                產生分享連結與 QR Code
-              </button>
-              
-              <div id="share-result" class="hidden space-y-4 animate-fade-in">
-                <div class="flex flex-col items-center">
-                  <img id="share-qr" class="w-32 h-32 bg-white p-2 rounded-xl shadow-sm border border-slate-100 mb-2">
-                  <span class="text-[10px] text-slate-400">掃描 QR Code 在手機開啟</span>
-                </div>
-                <div class="relative">
-                  <input id="share-url-input" readonly class="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-[10px] font-mono pr-20 outline-none">
-                  <button onclick="copyShareUrl()" class="absolute right-2 top-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200">複製</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="flex gap-3 pt-4">
-              <button onclick="handleClearSettings()" class="flex-1 py-3 bg-slate-100 text-slate-500 rounded-2xl font-bold text-sm hover:bg-red-50 hover:text-red-600 transition-all">
-                清除設定
-              </button>
-              <button onclick="handleSaveSettingsInModal()" class="flex-[2] py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">
-                儲存連線設定
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-
-      document.body.appendChild(modal);
-    }
+    // [已移除] 第一版 showSettings()，保留下方第二版（邏輯更完整）
 
     async function handleSaveSettingsInModal() {
       const url = document.getElementById('settings-gas-url').value.trim();
@@ -5059,8 +5047,8 @@
       refreshAll();
     }
 
-    function handleClearSettings() {
-      if (confirm("確定要清除所有連線設定嗎？這將會刪除儲存的 GAS URL 與 API Key。")) {
+    async function handleClearSettings() {
+      if (await showConfirmModal('清除設定', '確定要清除所有連線設定嗎？這將會刪除儲存的 GAS URL 與 API Key。')) {
         localStorage.removeItem('gas_web_app_url');
         localStorage.removeItem('gemini_api_key');
         showToast("設定已清除", "success");
@@ -5383,8 +5371,10 @@
 
     function copyAIPrompt() {
       const textarea = document.getElementById('ai-fallback-prompt-text');
-      textarea.select();
-      document.execCommand('copy');
+      navigator.clipboard.writeText(textarea.value).catch(() => {
+        textarea.select();
+        document.execCommand('copy');
+      });
 
       const btn = document.getElementById('copy-prompt-btn');
       const originalHtml = btn.innerHTML;
