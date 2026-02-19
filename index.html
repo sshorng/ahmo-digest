@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 
 <head>
@@ -2339,6 +2339,14 @@
     }
 
     /**
+     * [新增] HTML / 屬性跳脫工具，防止 XSS 注入
+     */
+    function escapeHtml(str) {
+      if (typeof str !== 'string') return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    /**
      * 自定義 Modal 系統 (替代 alert/confirm)
      */
     function showCustomModal(title, message, type = 'info') {
@@ -2939,7 +2947,7 @@
           nameInput.value = res.name;
           showToast(`已自動偵測網站標題：${res.name}`);
         }
-      } catch (e) { }
+      } catch (e) { console.error('Auto-detect name failed', e); }
     }
 
     async function handleAddSub() {
@@ -3101,23 +3109,24 @@
 
         // 分類狀態顯示邏輯：跟來源一樣，有未讀顯數字，沒未讀顯圖示，點擊皆可同步
         let catStatusHtml = "";
+        const safeCat = escapeHtml(cat);
         const catIdForSync = `sidebar-cat-sync-${cat.replace(/\s+/g, '-')}`;
 
         if (unreadCount > 0) {
           catStatusHtml = `<span id="${catIdForSync}" class="px-1.5 py-0.5 bg-blue-100 text-blue-600 text-[10px] font-bold rounded-md cursor-pointer hover:bg-blue-200 transition-all font-mono"
-                                onclick="event.stopPropagation(); handleSyncCategory('${cat.replace(/'/g, "\\'")}', this)"
+                                data-cat="${safeCat}" onclick="event.stopPropagation(); handleSyncCategory(this.dataset.cat, this)"
                                 title="此分類共 ${unreadCount} 則未讀 - 點擊同步整個分類">${unreadCount}</span>`;
         } else {
           catStatusHtml = `<i id="${catIdForSync}" class="sidebar-sync-btn fa-solid fa-rotate text-[10px] text-slate-300 hover:text-blue-500 cursor-pointer transition-all"
-                              onclick="event.stopPropagation(); handleSyncCategory('${cat.replace(/'/g, "\\'")}', this)"
+                              data-cat="${safeCat}" onclick="event.stopPropagation(); handleSyncCategory(this.dataset.cat, this)"
                               title="同步整個分類"></i>`;
         }
 
         header.innerHTML = `
-          <div class="flex items-center flex-1 min-w-0" onclick="setCategoryFilter('${cat}')">
+          <div class="flex items-center flex-1 min-w-0" data-cat="${safeCat}" onclick="setCategoryFilter(this.dataset.cat)">
             <i class="fa-solid ${isCollapsed ? 'fa-folder' : 'fa-folder-open'} text-sm flex-shrink-0 mr-2" 
-               onclick="event.stopPropagation(); toggleCategoryCollapse('${cat}')"></i>
-            <span class="truncate leading-none font-bold" title="${cat.replace(/"/g, '&quot;')}">${cat}</span>
+               data-cat="${safeCat}" onclick="event.stopPropagation(); toggleCategoryCollapse(this.dataset.cat)"></i>
+            <span class="truncate leading-none font-bold" title="${safeCat}">${safeCat}</span>
           </div>
           <div class="flex-shrink-0 w-8 h-6 flex items-center justify-end">
             ${catStatusHtml}
@@ -3135,25 +3144,27 @@
             // [新增] 偵測是否為中斷項目 (轉為 Number 確保匹配)
             const isInterrupted = !s.isFrozen && pendingSyncSources.has(Number(s.index));
 
+            const safeName = escapeHtml(s.name);
+
             if (isInterrupted) {
               secondaryIcon = `<i id="sidebar-sync-icon-${s.index}" class="fa-solid fa-clock-rotate-left text-[10px] text-amber-500 cursor-pointer animate-pulse" 
-                                   onclick="event.stopPropagation(); handleSyncSingleSource('${s.name.replace(/'/g, "\\'")}', this)"
-                                   title="上次同步中斷，點擊點擊續傳"></i>`;
+                                   data-name="${safeName}" onclick="event.stopPropagation(); handleSyncSingleSource(this.dataset.name, this)"
+                                   title="上次同步中斷，點擊續傳"></i>`;
             } else if (isError) {
               secondaryIcon = `<i id="sidebar-sync-icon-${s.index}" class="fa-solid fa-circle-exclamation text-[10px] text-red-500 hover:text-red-700 cursor-pointer animate-pulse" 
-                                   onclick="event.stopPropagation(); handleSyncSingleSource('${s.name.replace(/'/g, "\\'")}', this)"
-                                   title="同步失敗 (${s.lastChecked}) - 點擊重新同步"></i>`;
+                                   data-name="${safeName}" onclick="event.stopPropagation(); handleSyncSingleSource(this.dataset.name, this)"
+                                   title="同步失敗 (${escapeHtml(s.lastChecked)}) - 點擊重新同步"></i>`;
             } else if (unreadCount > 0) {
               secondaryIcon = `<span id="sidebar-sync-icon-${s.index}" class="px-1.5 py-0.5 bg-blue-100 text-blue-600 text-[10px] font-bold rounded-md cursor-pointer hover:bg-blue-200 transition-all font-mono"
-                                     onclick="event.stopPropagation(); handleSyncSingleSource('${s.name.replace(/'/g, "\\'")}', this)"
+                                     data-name="${safeName}" onclick="event.stopPropagation(); handleSyncSingleSource(this.dataset.name, this)"
                                      title="未讀文章數 - 點擊立即重新同步">${unreadCount}</span>`;
             } else if (s.isFrozen) {
               secondaryIcon = `<i id="sidebar-sync-icon-${s.index}" class="sidebar-sync-btn fa-solid fa-snowflake text-[10px] text-blue-200 cursor-pointer hover:text-blue-400 transition-all"
-                                   onclick="event.stopPropagation(); handleSyncSingleSource('${s.name.replace(/'/g, "\\'")}', this)"
+                                   data-name="${safeName}" onclick="event.stopPropagation(); handleSyncSingleSource(this.dataset.name, this)"
                                    title="已進入冷凍庫 (每週巡邏一次) - 點擊可強制同步"></i>`;
             } else {
               secondaryIcon = `<i id="sidebar-sync-icon-${s.index}" class="sidebar-sync-btn fa-solid fa-rotate-right text-[10px] text-slate-300 hover:text-blue-500 cursor-pointer transition-all"
-                                   onclick="event.stopPropagation(); handleSyncSingleSource('${s.name.replace(/'/g, "\\'")}', this)"
+                                   data-name="${safeName}" onclick="event.stopPropagation(); handleSyncSingleSource(this.dataset.name, this)"
                                    title="點擊立即重新同步"></i>`;
             }
 
@@ -3164,7 +3175,7 @@
             d.innerHTML = `
               <div class="flex items-center min-w-0 flex-1 pl-0 pr-2" title="最後同步: ${s.lastChecked || '未知'}">
                 <img src="${favicon}" onerror="this.style.display='none'" class="w-4 h-4 mr-2 rounded-sm flex-shrink-0 opacity-80" />
-                <span class="truncate leading-none ${isError ? 'text-red-400 font-bold' : ''}" title="${s.name.replace(/"/g, '&quot;')}">${s.name}</span>
+                <span class="truncate leading-none ${isError ? 'text-red-400 font-bold' : ''}" title="${safeName}">${safeName}</span>
               </div>
               
               <!-- 常駐顯示的未讀/同步狀態 (固定寬度且靠右對齊) -->
@@ -3174,8 +3185,8 @@
 
               <!-- 浮動的管理按鈕 (遮在文字尾部上方) -->
               <div class="absolute right-8 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                 <button onclick="event.stopPropagation(); openEditSourceModal('${s.index}', '${s.name.replace(/'/g, "\\'")}', '${s.url.replace(/'/g, "\\'")}', '${(s.category || '未分類').replace(/'/g, "\\'")}')" 
-                         class="w-7 h-7 flex items-center justify-center rounded-md text-blue-500 bg-white shadow-md border border-blue-50 hover:bg-blue-50 transition-all font-bold" title="編輯來源">
+                 <button data-idx="${s.index}" data-name="${safeName}" data-url="${escapeHtml(s.url)}" data-cat="${escapeHtml(s.category || '未分類')}"
+                          onclick="event.stopPropagation(); openEditSourceModal(this.dataset.idx, this.dataset.name, this.dataset.url, this.dataset.cat)"
                    <i class="fa-solid fa-pen-to-square text-[10px]"></i>
                  </button>
                  <button onclick="event.stopPropagation(); handleDeleteSub('${s.index}')" 
@@ -3262,7 +3273,8 @@
       const actionsEl = document.getElementById('view-actions');
       if (sub) {
         actionsEl.innerHTML = `
-          <button onclick="handleEditSub(${sub.index}, '${sub.name.replace(/'/g, "\\'")}', '${sub.url.replace(/'/g, "\\'")}', '${(sub.category || '未分類').replace(/'/g, "\\'")}')" 
+          <button data-idx="${sub.index}" data-name="${escapeHtml(sub.name)}" data-url="${escapeHtml(sub.url)}" data-cat="${escapeHtml(sub.category || '未分類')}" 
+                  onclick="handleEditSub(this.dataset.idx, this.dataset.name, this.dataset.url, this.dataset.cat)" 
                   class="hover:text-blue-600 transition-colors flex items-center" title="修改訂閱資訊">
             <i class="fa-solid fa-pen-to-square text-[10px]"></i>
           </button>
@@ -3392,15 +3404,15 @@
                        onclick="event.stopPropagation(); toggleSubSelection(${s.index})">
                 <div class="truncate flex-1 min-w-0">
                   <div class="flex items-center space-x-2">
-                    <div class="font-bold text-slate-800 text-sm truncate max-w-[120px] md:max-w-none" title="${s.name}">${s.name}</div>
+                    <div class="font-bold text-slate-800 text-sm truncate max-w-[120px] md:max-w-none" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
                     ${isError
                 ? `<i id="sync-icon-${s.index}" class="fa-solid fa-circle-exclamation text-red-500 text-sm flex-shrink-0 cursor-pointer animate-pulse hover:scale-125 transition-transform" 
-                     title="${s.status} - 點擊嘗試重新同步"
-                     onclick="event.stopPropagation(); handleSyncSingleSource('${s.name.replace(/'/g, "\\'")}', this)"></i>`
+                     title="${escapeHtml(s.status)} - 點擊嘗試重新同步"
+                     data-name="${escapeHtml(s.name)}" onclick="event.stopPropagation(); handleSyncSingleSource(this.dataset.name, this)"></i>`
                 : `<div class="flex items-center space-x-2">
-                     <span class="hidden md:inline-block text-[9px] px-1.5 py-0.5 rounded border bg-slate-50 text-slate-400 border-slate-100">${s.status || 'OK'}</span>
+                     <span class="hidden md:inline-block text-[9px] px-1.5 py-0.5 rounded border bg-slate-50 text-slate-400 border-slate-100">${escapeHtml(s.status) || 'OK'}</span>
                      <i id="sync-icon-${s.index}" class="fa-solid ${pendingSyncSources.has(s.index) ? 'fa-clock-rotate-left text-amber-500 animate-pulse' : 'fa-rotate-right text-slate-300'} text-xs hover:text-blue-500 cursor-pointer transition-all"
-                        onclick="event.stopPropagation(); handleSyncSingleSource('${s.name.replace(/'/g, "\\'")}', this)"
+                        data-name="${escapeHtml(s.name)}" onclick="event.stopPropagation(); handleSyncSingleSource(this.dataset.name, this)"
                         title="${pendingSyncSources.has(s.index) ? '上次同步中斷，點擊續傳' : '點擊立即重新同步'}"></i>
                    </div>`
               }
@@ -3416,13 +3428,13 @@
                     </button>
                   </div>
                   <div class="text-[10px] text-slate-400 truncate mt-0.5 flex items-center">
-                    <span class="truncate mr-2 max-w-[140px] md:max-w-xs opacity-80">${s.url}</span>
+                    <span class="truncate mr-2 max-w-[140px] md:max-w-xs opacity-80">${escapeHtml(s.url)}</span>
                     <span class="shrink-0 opacity-60 hidden md:flex items-center"><i class="fa-regular fa-clock mr-1"></i>${s.lastChecked || '-'}</span>
                   </div>
                 </div>
               </div>
               <div class="flex items-center space-x-1 shrink-0 ml-1">
-                <button onclick="handleEditSub(${s.index}, '${s.name.replace(/'/g, "\\'")}', '${s.url.replace(/'/g, "\\'")}', '${(s.category || '未分類').replace(/'/g, "\\'")}')" class="btn-icon hover:text-blue-500 p-2"><i class="fa-solid fa-pen text-xs"></i></button>
+                <button data-idx="${s.index}" data-name="${escapeHtml(s.name)}" data-url="${escapeHtml(s.url)}" data-cat="${escapeHtml(s.category || '未分類')}" onclick="handleEditSub(this.dataset.idx, this.dataset.name, this.dataset.url, this.dataset.cat)" class="btn-icon hover:text-blue-500 p-2"><i class="fa-solid fa-pen text-xs"></i></button>
                 <button onclick="handleDeleteSub(${s.index})" class="btn-icon hover:text-red-500 p-2"><i class="fa-solid fa-trash text-xs"></i></button>
               </div>
             `;
@@ -3511,7 +3523,7 @@
           if (sub) sub.fullFetch = enabled;
           renderManagerList();
         }
-      } catch (e) { }
+      } catch (e) { console.error('Toggle full fetch failed', e); showToast('操作失敗', 'error'); }
     }
 
     async function handleToggleFreeze(index, isFrozen) {
@@ -3523,7 +3535,7 @@
           renderManagerList();
           renderSidebar();
         }
-      } catch (e) { }
+      } catch (e) { console.error('Toggle freeze failed', e); showToast('操作失敗', 'error'); }
     }
     async function submitBatchMove() {
       const indices = Array.from(selectedSubIndices);
@@ -3832,7 +3844,7 @@
           showToast("分類已重命名");
           refreshAll();
         }
-      } catch (e) { }
+      } catch (e) { console.error('Rename cat failed', e); showToast('重新命名失敗', 'error'); }
     }
 
     async function handleDeleteCat(cat) {
@@ -3844,7 +3856,7 @@
           showToast("分類及相關訂閱已刪除");
           refreshAll();
         }
-      } catch (e) { }
+      } catch (e) { console.error('Delete cat failed', e); showToast('刪除分類失敗', 'error'); }
     }
 
     function handleToggleStar(articleId, el) {
@@ -4361,6 +4373,14 @@
       const player = document.getElementById('main-audio-player');
       const title = document.getElementById('player-item-title');
       const subtitle = document.getElementById('player-item-subtitle');
+
+      // [#2 事件清理] 移除前一次 initPlayer 綁定的事件，避免閉包洩漏
+      player.onloadedmetadata = null;
+      player.oncanplay = null;
+      player.ontimeupdate = null;
+      player.onplay = null;
+      player.onpause = null;
+      player.onended = null;
 
       bar.classList.remove('player-hidden');
       currentPlayingId = article.id;
