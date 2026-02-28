@@ -2292,92 +2292,55 @@
     function invalidateGasUrlCache() { _cachedGasUrl = undefined; }
 
     /**
-     * [重構] ApiService：統一前端 API 呼叫，解耦 GAS 依賴，支援本地 Mock 開發
+     * 封裝 API 呼叫 (fetch 跨網域 POST/GET)
      */
-    const ApiService = {
-      isGasEnv: typeof google !== 'undefined' && google.script && google.script.run,
+    async function callApi(action, data = {}, isPost = true, silent = false, retryCount = 0, keepalive = false) {
+      const url = getGasUrl();
+      if (!url) {
+        if (!silent) showCustomModal("連線設定請求", "尚未設定 GAS Web App URL。請點擊側邊欄的 ⚙️ 按鈕進行設定，或是使用分享連結。");
+        throw new Error("Missing GAS URL");
+      }
 
-      async call(action, params = {}, isPost = true, silent = false, keepalive = false) {
-        // 1. 如果在 GAS 環境，優先使用原生 google.script.run（效能最好且免處理 CORS/Token）
-        if (this.isGasEnv) {
-          return new Promise((resolve, reject) => {
-            google.script.run
-              .withSuccessHandler((result) => {
-                if (result && result.success === false && !silent) {
-                  showCustomModal("系統提示", result.message, "error");
-                }
-                resolve(result !== undefined && result.data !== undefined ? result.data : result);
-              })
-              .withFailureHandler((error) => {
-                console.error("GAS API Call Error:", error);
-                if (silent === 'toast') {
-                  showToast("連線更新失敗，請檢查網路狀態", "error");
-                } else if (!silent) {
-                  showCustomModal("連線失敗", "無法連接至伺服器。\n\n錯誤訊息：" + error.toString(), "error");
-                }
-                reject(error);
-              })
-              .runAction(action, params);
+      try {
+        let response;
+        if (isPost) {
+          response = await fetch(url, {
+            method: 'POST',
+            mode: 'cors', // 處理跨網域
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, ...data }),
+            keepalive: keepalive // [新增] 支援背景傳輸
+          });
+        } else {
+          const queryParams = new URLSearchParams({ action, ...data });
+          response = await fetch(`${url}?${queryParams.toString()}`, {
+            method: 'GET',
+            mode: 'cors',
+            keepalive: keepalive
           });
         }
 
-        // 2. 如果不在 GAS 環境，檢查是否有設定 GAS Web App URL (作為 decoupling API Server)
-        const url = getGasUrl();
-        if (url) {
-          try {
-            let response;
-            if (isPost) {
-              response = await fetch(url, {
-                method: 'POST', mode: 'cors',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action, ...params }),
-                keepalive: keepalive
-              });
-            } else {
-              const queryParams = new URLSearchParams({ action, ...params });
-              response = await fetch(`${url}?${queryParams.toString()}`, {
-                method: 'GET', mode: 'cors', keepalive: keepalive
-              });
-            }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const result = await response.json();
 
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const result = await response.json();
-
-            if (result.success === false && !silent) {
-              showCustomModal("系統提示", result.message, "error");
-            }
-            return result.data !== undefined ? result.data : result;
-          } catch (e) {
-            console.error("Fetch API Call Error:", e);
-            if (silent === 'toast') {
-              showToast("連線更新失敗，請檢查網路狀態", "error");
-            } else if (!silent) {
-              showCustomModal("連線失敗", "無法連接至伺服器。\n\n錯誤訊息：" + e.toString(), "error");
-            }
-            throw e;
-          }
+        if (result.success === false && !silent) {
+          showCustomModal("系統提示", result.message, "error");
         }
-
-        // 3. 既不在 GAS 環境，也沒有設定 URL，直接拋出錯誤並提示設定。
-        if (!silent) {
-          showCustomModal("連線設定請求", "尚未設定 GAS Web App URL。請點擊參數設定 (⚙️) 綁定您的系統。");
-        }
-        throw new Error("Missing GAS URL");
-      }
-    };
-
-    /**
-     * 相容舊寫法：轉接至 ApiService
-     */
-    async function callApi(action, data = {}, isPost = true, silent = false, retryCount = 0, keepalive = false) {
-      try {
-        return await ApiService.call(action, data, isPost, silent, keepalive);
+        return result.data || result;
       } catch (e) {
-        // 舊版的 retry 邏輯保留在相容層
-        if (retryCount < 1) {
+        // [優化] 針對型別錯誤 (通常是網路斷線或 Fetch 失敗) 進行一次自動重試
+        const isNetworkError = (e instanceof TypeError) || e.toString().toLowerCase().includes('fetch');
+        if (isNetworkError && retryCount < 1) {
           console.warn(`[API] 網路異常，嘗試第二次連線 (${action})...`, e);
           await new Promise(r => setTimeout(r, 1500));
-          return callApi(action, data, isPost, silent, retryCount + 1, keepalive);
+          return callApi(action, data, isPost, silent, retryCount + 1);
+        }
+
+        console.error("API Call Error:", e);
+        if (silent === 'toast') {
+          showToast("連線更新失敗，請檢查網路狀態", "error");
+        } else if (!silent) {
+          showCustomModal("連線失敗", "無法連接至 Google 伺服器，請檢查網路狀態或 API 網址是否正確。\n\n錯誤訊息：" + e.toString(), "error");
         }
         throw e;
       }
@@ -4324,48 +4287,13 @@
       handleSearch("");
     }
 
-    async function openFullContentModal(articleId, el) {
+    function openFullContentModal(articleId, el) {
       const a = allData.articles.find(item => item.id === articleId);
       if (!a) return;
 
       const modalBody = document.getElementById('modal-body-text');
       document.getElementById('modal-title').innerText = a.title;
       document.getElementById('modal-source').innerText = a.source + ' • ' + formatDate(a.date);
-
-      // --- [新增] 延遲載入 (Lazy Loading) 邏輯 ---
-      if (a.hasDetail) {
-        modalBody.innerHTML = `
-          <div class="flex flex-col items-center justify-center py-20 text-slate-400">
-            <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-4 text-blue-500"></i>
-            <p class="text-sm font-medium animate-pulse">正在載入完整內容與 AI 摘要...</p>
-          </div>
-        `;
-        document.getElementById('modal-header-toggle').innerHTML = '';
-
-        // 先顯示 Modal 讓使用者知道正在處理
-        const modal = document.getElementById('content-modal');
-        const body = document.getElementById('content-modal-body');
-        modal.classList.remove('opacity-0', 'pointer-events-none');
-        body.classList.remove('scale-95');
-        body.classList.add('scale-100');
-        document.body.style.overflow = 'hidden';
-
-        try {
-          // 透過 ApiService 向後端請求全文
-          const detail = await callApi('getArticleDetail', { id: articleId }, false, true);
-          if (detail) {
-            a.description = detail.description || '';
-            a.aiSummary = detail.aiSummary || '';
-            a.transcript = detail.transcript || '';
-            a.hasDetail = false; // 取消標記，下次不再重新請求
-            saveStateToLocal(); // 更新本地快取
-          }
-        } catch (e) {
-          console.error("Fetch detail failed:", e);
-          a.description = `<div class="p-4 bg-red-50 text-red-500 border border-red-100 rounded-lg text-sm mb-4"><i class="fa-solid fa-triangle-exclamation mr-2"></i>載入完整內容失敗，以下為部分摘要：<br><br>${a.description}</div>`;
-          a.hasDetail = false;
-        }
-      }
 
       // 修正潛在的逸脫字元問題 (針對先前生成的舊資料或解析例外)
       let summaryContent = a.aiSummary || '';
@@ -4449,28 +4377,9 @@
     }
 
     // --- Global Audio Player Logic ---
-    async function initPlayerById(id, immediatePlay) {
+    function initPlayerById(id, immediatePlay) {
       const a = allData.articles.find(it => it.id === id);
-      if (!a) return;
-
-      // --- [新增] 播放前延遲載入 (Lazy Loading) 邏輯 ---
-      if (a.hasDetail) {
-        try {
-          const detail = await callApi('getArticleDetail', { id: a.id }, false, true);
-          if (detail) {
-            a.description = detail.description || '';
-            a.aiSummary = detail.aiSummary || '';
-            a.transcript = detail.transcript || '';
-            a.hasDetail = false;
-            saveStateToLocal();
-          }
-        } catch (e) {
-          console.error("Fetch detail before play failed:", e);
-          // 即使失敗也繼續播放
-        }
-      }
-
-      initPlayer(a, immediatePlay);
+      if (a) initPlayer(a, immediatePlay);
     }
 
     function initPlayer(article, immediatePlay) {
@@ -5421,30 +5330,6 @@
       if (!a) return;
 
       const modal = document.getElementById('content-modal');
-
-      // --- [新增] AI 生成前延遲載入 (Lazy Loading) 邏輯 ---
-      if (a.hasDetail) {
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-[15px]"></i>';
-        btn.disabled = true;
-        try {
-          const detail = await callApi('getArticleDetail', { id: a.id }, false, true);
-          if (detail) {
-            a.description = detail.description || '';
-            a.aiSummary = detail.aiSummary || '';
-            a.transcript = detail.transcript || '';
-            a.hasDetail = false;
-            saveStateToLocal();
-          }
-        } catch (e) {
-          console.error("Fetch detail before AI failed:", e);
-          resetAiButton(btn, false);
-          showToast("無法獲取全文，AI 生成失敗", "error");
-          return; // 失敗就擋下
-        }
-        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-[15px]"></i>';
-        btn.disabled = false;
-      }
-
       if ((a.aiSummary || a.transcript) && modal.classList.contains('active')) {
         switchTab('summary');
         return;
