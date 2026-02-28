@@ -4605,9 +4605,8 @@
       const bar = document.getElementById('podcast-player-bar');
       const player = document.getElementById('main-audio-player');
       player.pause();
-      bar.classList.add('player-hidden');
-      document.getElementById('podcast-floating-ball').classList.remove('show');
       currentPlayingId = null;
+      applyPlayerDisplay(); // UI 將切換回空狀態
       renderQueue();
       syncPlayerStateToCloud();
     }
@@ -4625,10 +4624,17 @@
 
       const hasContent = (currentPlayingId || (allData.queue && allData.queue.length > 0));
 
+      // 若目前無播放內容，初始化空狀態介面
       if (!hasContent) {
-        bar.classList.add('player-hidden');
-        ball.classList.remove('show');
-        return;
+        document.getElementById('player-item-title').innerHTML = '<span class="marquee-span">尚未播放</span>';
+        document.getElementById('player-item-subtitle').innerText = '無播放來源';
+        document.getElementById('player-current-time').innerText = '00:00';
+        document.getElementById('player-duration').innerText = '00:00';
+        document.getElementById('player-mobile-current-time').innerText = '00:00';
+        document.getElementById('player-mobile-duration').innerText = '00:00';
+        document.getElementById('player-progress').value = 0;
+        document.getElementById('player-progress-fill').style.width = '0%';
+        updatePlayerUI(false);
       }
 
       let effectiveMode = playerDisplayMode;
@@ -5567,11 +5573,12 @@
       <div class="player-meta-group">
         <div class="player-info">
           <!-- 節目名稱標籤 (左側固定) -->
-          <div id="player-item-subtitle" class="player-subtitle" onclick="setSourceFilter(this.innerText)">來源名稱</div>
+          <div id="player-item-subtitle" class="player-subtitle"
+            onclick="if(this.innerText !== '無播放來源') setSourceFilter(this.innerText)">無播放來源</div>
           <!-- 單集標題 (中間滾動) -->
           <div class="player-title-wrap">
-            <div class="player-title" id="player-item-title" onclick="openFullContentModal(currentPlayingId)">Podcast 標題
-            </div>
+            <div class="player-title" id="player-item-title"
+              onclick="if(currentPlayingId) openFullContentModal(currentPlayingId)">尚未播放</div>
           </div>
           <!-- 手機版時間顯示 (右側: 當前/總時長) -->
           <span class="mobile-time-display">
