@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 
 <head>
@@ -2163,9 +2163,11 @@
       </div>
       <div
         class="px-4 md:px-6 py-3 md:py-4 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-3 md:gap-4 flex-shrink-0 bg-white z-10">
-        <span id="modal-date" class="text-[11px] md:text-xs text-slate-400 order-2 md:order-1">發布時間</span>
+        <span id="modal-date" class="text-[11px] md:text-xs text-slate-400 order-3 md:order-1">發布時間</span>
+        <div class="flex items-center gap-2 order-2 md:order-2 w-full md:w-auto">
+        </div>
         <a id="modal-link" href="#" target="_blank"
-          class="w-full md:w-auto px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center whitespace-nowrap order-1 md:order-2">
+          class="w-full md:w-auto px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center whitespace-nowrap order-1 md:order-3">
           查看原文 <i class="fa-solid fa-arrow-up-right-from-square ml-2"></i>
         </a>
       </div>
@@ -3424,11 +3426,7 @@
                         title="${pendingSyncSources.has(s.index) ? '上次同步中斷，點擊續傳' : '點擊立即重新同步'}"></i>
                    </div>`
               }
-                    <button onclick="event.stopPropagation(); handleToggleFullFetch(${s.index}, ${!s.fullFetch})" 
-                            class="ml-2 px-2 py-0.5 rounded-md text-[9px] font-bold transition-all ${s.fullFetch ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}"
-                            title="${s.fullFetch ? '已開啟全文抓取' : '點擊開啟全文抓取'}">
-                      <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>全文
-                    </button>
+
                     <button onclick="event.stopPropagation(); handleToggleFreeze(${s.index}, ${!s.isFrozen})" 
                             class="ml-1 px-2 py-0.5 rounded-md text-[9px] font-bold transition-all ${s.isFrozen ? 'bg-blue-200 text-blue-700 shadow-sm' : 'bg-slate-100 text-slate-400 group-hover:text-slate-400 hover:bg-slate-200'}"
                             title="${s.isFrozen ? '已放入冷凍庫 (每週巡邏)' : '放入冷凍庫 (長期不更)'}">
@@ -4001,14 +3999,25 @@
     }
 
     function getAiButtonHtml(a) {
-      if (!a || !a.audioUrl) return '';
-      const hasAi = a.aiSummary || a.transcript;
-      const sparkleClass = hasAi ? 'grayscale-0 text-amber-500' : 'grayscale text-slate-400 opacity-60';
+      if (!a) return '';
+      // Podcast 顯示 AI 魔法棒
+      if (a.audioUrl) {
+        const hasAi = a.aiSummary || a.transcript;
+        const sparkleClass = hasAi ? 'grayscale-0 text-amber-500' : 'grayscale text-slate-400 opacity-60';
+        return `
+          <button onclick="event.stopPropagation(); handleGenerateAI('${a.id}', this)" 
+                  class="ai-sparkle-btn p-1 ${sparkleClass}" 
+                  title="${hasAi ? '重新生成 AI 筆記' : '生成 AI 筆記'}">
+            <i class="fa-solid fa-wand-magic-sparkles text-[15px]"></i>
+          </button>
+        `;
+      }
+      // 一般 RSS 顯示抓取全文圖示
       return `
-        <button onclick="event.stopPropagation(); handleGenerateAI('${a.id}', this)" 
-                class="ai-sparkle-btn p-1 ${sparkleClass}" 
-                title="${hasAi ? '查看 AI 筆記' : '生成 AI 筆記'}">
-          <i class="fa-solid fa-wand-magic-sparkles text-[15px]"></i>
+        <button id="modal-refetch-btn" onclick="event.stopPropagation(); handleRefetchContent(this)" 
+                class="text-slate-400 hover:text-blue-600 transition-colors p-1" 
+                title="重新抓取全文內容">
+          <i class="fa-solid fa-rotate text-[15px]"></i>
         </button>
       `;
     }
@@ -4287,9 +4296,12 @@
       handleSearch("");
     }
 
+    let currentModalArticleId = null;
+
     function openFullContentModal(articleId, el) {
       const a = allData.articles.find(item => item.id === articleId);
       if (!a) return;
+      currentModalArticleId = articleId; // 紀錄目前 Modal 中的文章 ID
 
       const modalBody = document.getElementById('modal-body-text');
       document.getElementById('modal-title').innerText = a.title;
@@ -4365,6 +4377,8 @@
       markAsReadInline(articleId, el);
     }
 
+    // [新增] 目前在 Modal 中開啟的文章 ID (已宣告於 openFullContentModal 之前)
+
     function closeContentModal() {
       const modal = document.getElementById('content-modal');
       modal.classList.add('opacity-0');
@@ -4374,6 +4388,39 @@
       body.classList.remove('scale-100');
       body.classList.add('scale-95');
       document.body.style.overflow = '';
+      currentModalArticleId = null;
+    }
+
+    /**
+     * [新增] 重新抓取全文 — 呼叫後端 refetchFullContent API
+     */
+    async function handleRefetchContent(btn) {
+      if (!currentModalArticleId) return;
+      const targetBtn = btn || document.getElementById('modal-refetch-btn');
+      const origHtml = targetBtn.innerHTML;
+      targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[15px]"></i>';
+      targetBtn.disabled = true;
+
+      try {
+        const res = await callApi('refetchFullContent', { id: currentModalArticleId });
+        if (res.success && res.content) {
+          // 更新本地資料
+          const a = allData.articles.find(it => it.id === currentModalArticleId);
+          if (a) a.description = res.content;
+          // 更新 Modal 顯示
+          const contentEl = document.getElementById('content-full');
+          if (contentEl) contentEl.innerHTML = res.content;
+          showToast('全文抓取成功！');
+        } else {
+          showToast(res.message || '無法抓取全文', 'error');
+        }
+      } catch (e) {
+        console.error('Refetch content failed', e);
+        showToast('抓取失敗，請稍後再試', 'error');
+      } finally {
+        targetBtn.innerHTML = origHtml;
+        targetBtn.disabled = false;
+      }
     }
 
     // --- Global Audio Player Logic ---
@@ -5336,14 +5383,21 @@
       if (!a) return;
 
       const modal = document.getElementById('content-modal');
-      if ((a.aiSummary || a.transcript) && modal.classList.contains('active')) {
-        switchTab('summary');
-        return;
-      }
+      const hasAiContent = (a.aiSummary || a.transcript);
 
-      if (a.aiSummary || a.transcript) {
-        openFullContentModal(id);
-        return;
+      if (hasAiContent) {
+        // 如果是在 Modal 中點擊，或者是刻意點擊帶有內容的 AI 按鈕，則詢問是否重新生成
+        if (!modal.classList.contains('pointer-events-none')) {
+          const confirmOk = await showConfirmModal("重新生成 AI 摘要？", "目前的 AI 筆記與摘要將被覆蓋，確定要重新生成嗎？");
+          if (!confirmOk) {
+            switchTab('summary'); // 不重生的話就切換到摘要頁籤
+            return;
+          }
+        } else {
+          // 在列表點擊已有的 AI 文章，直接開 Modal 顯示內容
+          openFullContentModal(id);
+          return;
+        }
       }
 
       btn.classList.add('active');
