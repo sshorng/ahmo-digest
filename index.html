@@ -3914,6 +3914,20 @@
         return true;
       });
 
+      // [修正] 日期過濾：一般瀏覽模式下只顯示最近 14 天的文章
+      // 星標(稍候閱讀)、搜尋模式、指定特定來源時不受此限制
+      if (!isReadLaterFilter && !searchQuery && !currentSourceFilter) {
+        const dateCutoff = new Date();
+        dateCutoff.setDate(dateCutoff.getDate() - 14);
+        const cutoffTime = dateCutoff.getTime();
+        filtered = filtered.filter(a => {
+          // 星標文章不受日期限制
+          if (allData.starredIds.has(a.id)) return true;
+          const articleTime = new Date(a.date).getTime();
+          return !isNaN(articleTime) && articleTime >= cutoffTime;
+        });
+      }
+
       if (currentSourceFilter) {
         filtered = filtered.filter(a => a.source === currentSourceFilter);
       } else if (currentCategoryFilter) {
@@ -4031,7 +4045,7 @@
       const filtered = getFilteredArticles();
       const displayed = filtered.slice(0, displayLimit);
 
-      const filterText = isReadLaterFilter ? "稍候閱讀" : (currentSourceFilter || "最近一個月文章");
+      const filterText = isReadLaterFilter ? "稍候閱讀" : (currentSourceFilter || "最近兩週文章");
       countEl.innerText = `共 ${displayed.length} / ${filtered.length} 則文章`;
 
       // 隱藏載入動畫，顯示網格
